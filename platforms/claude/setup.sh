@@ -28,12 +28,26 @@ safe_link() {
   local target="$1"
   local link_path="$2"
   local label="$3"
+  local target_for_link="$target"
+
+  if [[ "$target" = /* ]]; then
+    target_for_link="$(python3 - "$target" "$(dirname "$link_path")" <<'PY'
+import os
+import sys
+
+target = os.path.abspath(sys.argv[1])
+base = os.path.realpath(sys.argv[2])
+target = os.path.realpath(target)
+print(os.path.relpath(target, base))
+PY
+)"
+  fi
 
   if [ -L "$link_path" ]; then
     local current_target
     current_target="$(readlink "$link_path" || true)"
-    if [ "$current_target" != "$target" ]; then
-      ln -sf "$target" "$link_path"
+    if [ "$current_target" != "$target_for_link" ]; then
+      ln -sf "$target_for_link" "$link_path"
       echo "  Updated symlink: ${label}"
     else
       echo "  Symlink already current: ${label}"
@@ -42,14 +56,14 @@ safe_link() {
     if [ "$FORCE_REFRESH_LINKS" = "1" ]; then
       local backup_path="${link_path}.legacy-${RUN_ID}"
       mv "$link_path" "$backup_path"
-      ln -s "$target" "$link_path"
+      ln -s "$target_for_link" "$link_path"
       echo "  Refreshed link ${label}; backup: ${backup_path}"
     else
       echo "  Skipped symlink ${label}: regular file/directory exists."
       return 1
     fi
   else
-    ln -s "$target" "$link_path"
+    ln -s "$target_for_link" "$link_path"
     echo "  Created symlink: ${label}"
   fi
 

@@ -1,1 +1,1 @@
-/home/adam/github/cadencelms_ui_v2/ai_team_config/skills/adr/SKILL.md
+../../../skills/adr/SKILL.md

@@ -22,8 +22,9 @@ Determine your team identity before any action:
    - `.codex-workflow/config/active-role.json`
    - `.codex-workflow/config/active-agent-role.json` (legacy alias)
    - `.claude/active-role.json`
-3. If still unavailable, infer from `dev_communication/` team directories
-4. Use the role's `team_id` to resolve paths (inbox, issues, status)
+3. If role file is unavailable, fallback to `.codex-workflow/config/active-team.json` and use `team_profile.default_paths`
+4. If still unavailable, infer from `dev_communication/` team directories
+5. Use the active `team_id` to resolve paths (inbox, issues, status)
 
 Path variables used below:
 - `{my_inbox}` — `dev_communication/{my_team}/inbox/`
@@ -54,6 +55,7 @@ Check inbox, pending issues, and team status.
 
 Project policy:
 - Default check scope is team-local only.
+- Backend-specific default: when operating as backend, read only `dev_communication/backend/*` unless the user explicitly asks for cross-team scope.
 - Include cross-team folders only when explicitly requested by the user.
 
 **Output format:**

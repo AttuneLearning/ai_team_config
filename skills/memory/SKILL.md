@@ -56,6 +56,14 @@ No index updates needed. Fast, low-ceremony capture.
 
 Use Obsidian syntax for cross-references: `[[entities/entity-name]]`, `[[patterns/pattern-name]]`
 
+## Backend Context Storage
+
+Backend-specific context notes and migrated legacy backend memory should live under:
+- `memory/context/backend/`
+- `memory/context/backend/skill-store/`
+
+Do not create new memory entries in deprecated `ai_team_config/backend/*_store/` paths.
+
 ## Guidelines
 
 - Keep entries concise but complete
