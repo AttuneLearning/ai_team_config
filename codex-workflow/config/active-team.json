@@ -1,0 +1,47 @@
+{
+  "pack_name": "codex-workflow",
+  "team_id": "frontend",
+  "team_profile": {
+    "name": "Frontend",
+    "alias": "ui",
+    "issue_prefix": "UI-ISS",
+    "sub_teams": {
+      "frontend-dev": {
+        "name": "Frontend-Dev",
+        "function": "dev",
+        "issue_prefix": "UI-ISS",
+        "role_guidance": "dev_communication/shared/guidance/FRONTEND_DEV_ROLE_GUIDANCE.md"
+      },
+      "frontend-qa": {
+        "name": "Frontend-QA",
+        "function": "qa",
+        "issue_prefix": "UI-QA",
+        "role_guidance": "dev_communication/shared/guidance/FRONTEND_QA_ROLE_GUIDANCE.md"
+      }
+    },
+    "enabled_skills": [
+      "comms",
+      "adr",
+      "memory",
+      "context",
+      "reflect",
+      "refine"
+    ],
+    "default_paths": {
+      "inbox": "dev_communication/frontend/inbox",
+      "issues_queue": "dev_communication/frontend/issues/queue",
+      "issues_active": "dev_communication/frontend/issues/active",
+      "issues_completed": "dev_communication/frontend/issues/completed",
+      "other_team_inbox": "dev_communication/backend/inbox",
+      "architecture_root": "dev_communication/shared/architecture",
+      "memory_root": "./memory",
+      "status": "dev_communication/frontend/status.md"
+    }
+  },
+  "project_root": "/home/adam/github/cadencelms_ui_v2",
+  "agent_role": {
+    "id": "frontend-dev",
+    "name": "Frontend-Dev",
+    "description": "dev role for Frontend"
+  }
+}

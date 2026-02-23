@@ -1,0 +1,32 @@
+role_id: qa-manual
+role_name: QA-Manual
+team_id: qa
+function: manual
+issue_prefix: QA-ISS
+
+owns:
+  - Manual verification of cross-team functional changes
+  - Creating/updating QA manual issues (QA-ISS-*) for blockers
+  - Moving issues from active/ to completed/ (Phase 5) after verification
+  - Setting Status: COMPLETE on verified issues
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Test scenario reference
+  - Repro steps
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: QA-Manual
+  check_scope: team-only
+

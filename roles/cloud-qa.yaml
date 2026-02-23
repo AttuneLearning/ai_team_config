@@ -1,0 +1,32 @@
+role_id: cloud-qa
+role_name: Cloud-QA
+team_id: cloud
+function: qa
+issue_prefix: CLOUD-QA
+
+owns:
+  - Verifying cloud/infrastructure changes against acceptance criteria
+  - Running QA verification for active cloud issues
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Resource or pipeline reference
+  - Repro steps or verification command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: Cloud-QA
+  check_scope: team-only
+

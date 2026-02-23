@@ -1,0 +1,43 @@
+# =============================================================================
+# Sub-Team Role Definition: Backend-QA
+# =============================================================================
+
+role_id: backend-qa
+role_name: Backend-QA
+team_id: backend
+function: qa
+issue_prefix: BQA
+role_guidance: dev_communication/shared/guidance/BACKEND_QA_ROLE_GUIDANCE.md
+
+owns:
+  - Reviewing backend changes for correctness, contract alignment, security
+  - Running QA verification (typecheck, targeted tests, integration tests)
+  - Creating/updating backend QA issues (BQA-*) for blockers
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+  - Sending cross-team messages with evidence when frontend blocks sign-off
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+  - Creating issues in frontend queues
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Endpoint or route reference
+  - Repro steps or test command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: Backend-QA
+  check_scope: team-only
+  can_send_to:
+    - Frontend-Dev
+    - Frontend-QA
+    - Backend-Dev

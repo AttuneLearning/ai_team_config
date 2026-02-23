@@ -1,0 +1,97 @@
+---
+name: comms
+description: Manage dev_communication inboxes, messages, and issue lifecycle across backend/frontend teams.
+---
+
+# Comms Skill
+
+Use this skill when the user asks to check team comms, send a cross-team message, create or move issues, or archive completed message threads.
+
+## Team-awareness (required)
+
+Before running actions, resolve active team defaults from:
+
+1. `.codex-workflow/config/active-team.json` (project-local), else
+2. installed pack `config/active-team.json`.
+
+Use `team_profile.default_paths` and `issue_prefix` from that file as defaults.
+If no active team config exists, ask the user which team context to use.
+
+Project policy:
+- Default comms checks are `team-only`.
+- In backend context, check only `dev_communication/backend/inbox` and backend issue folders unless the user explicitly asks for frontend/cross-team status.
+
+## Inputs to resolve
+
+- Action: `check`, `send`, `issue`, `status`, `move`, or `archive`
+- Team context: current team (`backend` or `frontend`)
+- Target team (for cross-team message requests)
+- Header normalization (for new messages): use `Backend-Dev`, `Backend-QA`, `Frontend-Dev`, `Frontend-QA`
+
+## Actions
+
+### 1. Check (default)
+
+1. List:
+   - Active team inbox (`team_profile.default_paths.inbox`)
+   - Active team issues queue (`team_profile.default_paths.issues_queue`)
+   - Active team issues active (`team_profile.default_paths.issues_active`)
+2. Summarize pending messages and issue counts for the active team.
+3. Only include cross-team inbox/issue status when explicitly requested by the user.
+
+### 2. Send
+
+1. Collect: target team, subject, priority, content, related issues.
+2. Use `dev_communication/templates/message-request.md` (or response template when replying).
+3. Save to target inbox:
+   - `dev_communication/backend/inbox/` or
+   - `dev_communication/frontend/inbox/`
+4. Filename format: `YYYY-MM-DD_{subject_slug}.md`.
+
+### 3. Issue
+
+1. Determine next issue number from target team's existing issues.
+2. Use `dev_communication/templates/issue-template.md`.
+3. Save to target queue:
+   - `dev_communication/backend/issues/queue/` for API issues
+   - `dev_communication/frontend/issues/queue/` for UI issues
+4. Initialize issue metadata with `Status: QUEUE`.
+5. Filename format: `{TEAM}-ISS-{NNN}_{title_slug}.md`.
+
+Guardrail:
+- Follow team protocol: messages cross team boundaries; issue ownership is team-local unless user explicitly asks to create across teams.
+
+### 4. Status
+
+1. Review active issues for the active team by default.
+2. Update active team status file:
+   - backend: `dev_communication/backend/status.md`
+   - frontend: `dev_communication/frontend/status.md`
+3. Include cross-team status only when explicitly requested by the user.
+
+### 5. Move
+
+1. Locate issue file.
+2. Select target folder: `queue/`, `active/`, or `completed/`.
+3. Apply strict folder-status mapping before/with move:
+   - `queue/` -> `Status: QUEUE`
+   - `active/` -> `Status: ACTIVE`
+   - `completed/` -> `Status: COMPLETE`
+4. Move file into matching folder in the same action as status update.
+5. Do not leave completed work in `queue/` or `active/`.
+
+**Completion ownership:** Only the QA team or QA sub-team may move issues to `completed/`. Dev teams move issues from `queue/` to `active/` only. After dev verification, issues remain in `active/` until QA independently verifies and moves them.
+
+### 6. Archive
+
+1. Identify completed thread messages.
+2. Create archive folder:
+   - `dev_communication/archive/YYYY-MM-DD_{thread_subject}/`
+3. Move related message files into archive folder.
+
+## Output expectations
+
+- Always return file paths created/updated/moved.
+- For `check`, provide short, scan-friendly status by team.
+- For `send` or `issue`, include exact filenames for traceability.
+- When issue completion is reported, explicitly confirm both status update and move to `completed/`.

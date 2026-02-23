@@ -1,0 +1,26 @@
+role_id: dw-dev
+role_name: DW-Dev
+team_id: data-warehousing
+function: dev
+issue_prefix: DW-ISS
+
+owns:
+  - Implementing ETL/reporting/data-model changes
+  - Creating/updating data-warehousing issues (DW-ISS-*) for planned work
+  - Moving issues from queue/ to active/
+
+does_not_own:
+  - Moving issues to completed/ (QA owns Phase 5)
+  - Setting Status: COMPLETE on issues
+  - QA verification (Phase 4)
+
+dev_gate:
+  - "Data pipeline validation checks pass"
+  - "Relevant tests pass"
+  - "Session file created: memory/sessions/{date}-{issue-slug}.md"
+  - "Resolution notes appended to issue file"
+
+comms:
+  from_header: DW-Dev
+  check_scope: team-only
+

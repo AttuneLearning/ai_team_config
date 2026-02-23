@@ -1,0 +1,42 @@
+# =============================================================================
+# Team Definition — Frontend
+# =============================================================================
+#
+# Describes this team's identity, responsibilities, and tech stack.
+# Each team workspace has one of these.
+#
+# =============================================================================
+
+team:
+  id: frontend
+  name: Frontend
+  alias: ui
+  role: frontend                      # Must match a role in teams/catalog.yaml
+
+responsibilities:
+  - UI component development
+  - Page routing and navigation
+  - State management and API integration
+  - Accessibility and responsive design
+  - Client-side performance
+
+stack:
+  # Canonical source: package.json / tsconfig.json
+  # Do not duplicate dependency or tooling info here.
+  # Agents should read package.json to determine framework, styling, test runner, etc.
+  source: package.json
+
+conventions:
+  issue_prefix: UI-ISS
+  branch_prefix: ui/
+
+# Optional: Sub-team identities that share this team's inbox/issues
+sub_teams:
+  frontend-dev:
+    name: Frontend-Dev
+    function: dev
+    issue_prefix: UI-ISS
+  frontend-qa:
+    name: Frontend-QA
+    function: qa
+    issue_prefix: UI-QA

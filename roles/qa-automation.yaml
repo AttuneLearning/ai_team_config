@@ -1,0 +1,32 @@
+role_id: qa-automation
+role_name: QA-Automation
+team_id: qa
+function: automation
+issue_prefix: QA-AUTO
+
+owns:
+  - Implementing and maintaining test automation coverage
+  - Creating/updating QA automation issues (QA-AUTO-*) for planned work
+  - Running regression automation checks for active issues
+  - Moving verified issues from active/ to completed/ (Phase 5)
+
+does_not_own:
+  - Feature implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Test suite reference
+  - Repro steps or test command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: QA-Automation
+  check_scope: team-only
+

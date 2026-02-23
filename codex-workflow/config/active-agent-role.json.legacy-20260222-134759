@@ -1,0 +1,10 @@
+{
+  "role_id": "frontend-qa",
+  "role_name": "Frontend QA",
+  "team_id": "frontend",
+  "updated_at": "2026-02-16T00:16:50Z",
+  "allowed_values": [
+    "frontend-qa",
+    "frontend-dev"
+  ]
+}

@@ -1,0 +1,121 @@
+# =============================================================================
+# Team Role Catalog
+# =============================================================================
+#
+# Generic team role definitions. These are TEMPLATES — they describe what each
+# team role does in general, not project-specific details.
+#
+# Project-specific team configuration (which roles are active, what they own,
+# tech stack) lives in dev_communication/{team}/definition.yaml within each
+# project.
+#
+# =============================================================================
+
+roles:
+
+  frontend:
+    name: Frontend
+    description: >
+      Client-side application development. Owns the browser/app runtime,
+      component architecture, state management, and user experience.
+    sub_teams:
+      dev:
+        id: frontend-dev
+        name: Frontend-Dev
+        issue_prefix: UI-ISS
+        role_guidance: dev_communication/shared/guidance/FRONTEND_DEV_ROLE_GUIDANCE.md
+      qa:
+        id: frontend-qa
+        name: Frontend-QA
+        issue_prefix: UI-QA
+        role_guidance: dev_communication/shared/guidance/FRONTEND_QA_ROLE_GUIDANCE.md
+
+  backend:
+    name: Backend
+    description: >
+      Server-side API development. Owns the database, business logic,
+      authentication, authorization, and all service integrations.
+    sub_teams:
+      dev:
+        id: backend-dev
+        name: Backend-Dev
+        issue_prefix: API-ISS
+        role_guidance: dev_communication/shared/guidance/BACKEND_DEV_ROLE_GUIDANCE.md
+      qa:
+        id: backend-qa
+        name: Backend-QA
+        issue_prefix: BQA
+        role_guidance: dev_communication/shared/guidance/BACKEND_QA_ROLE_GUIDANCE.md
+
+  mobile:
+    name: Mobile
+    description: >
+      Native and cross-platform mobile application development.
+    sub_teams:
+      dev:
+        id: mobile-dev
+        name: Mobile-Dev
+        issue_prefix: MOB-ISS
+      qa:
+        id: mobile-qa
+        name: Mobile-QA
+        issue_prefix: MOB-QA
+
+  cloud:
+    name: Cloud / Infrastructure
+    description: >
+      Infrastructure, deployment pipelines, and operational reliability.
+    sub_teams:
+      dev:
+        id: cloud-dev
+        name: Cloud-Dev
+        issue_prefix: CLOUD-ISS
+      qa:
+        id: cloud-qa
+        name: Cloud-QA
+        issue_prefix: CLOUD-QA
+
+  data-warehousing:
+    name: Data Warehousing
+    description: >
+      Analytical data infrastructure — extraction, transformation,
+      reporting, and machine learning.
+    sub_teams:
+      dev:
+        id: dw-dev
+        name: DW-Dev
+        issue_prefix: DW-ISS
+      qa:
+        id: dw-qa
+        name: DW-QA
+        issue_prefix: DW-QA
+
+  qa:
+    name: QA
+    description: >
+      Standalone quality assurance team. Owns test strategy,
+      automation frameworks, and release quality gates.
+    sub_teams:
+      manual:
+        id: qa-manual
+        name: QA-Manual
+        issue_prefix: QA-ISS
+      automation:
+        id: qa-automation
+        name: QA-Automation
+        issue_prefix: QA-AUTO
+
+  platform:
+    name: Platform
+    description: >
+      Shared developer tooling, SDKs, and internal infrastructure that
+      other teams build on top of.
+    sub_teams:
+      dev:
+        id: platform-dev
+        name: Platform-Dev
+        issue_prefix: PLAT-ISS
+      qa:
+        id: platform-qa
+        name: Platform-QA
+        issue_prefix: PLAT-QA

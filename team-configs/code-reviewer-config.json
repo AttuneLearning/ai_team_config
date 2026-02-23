@@ -1,0 +1,269 @@
+{
+  "$schema": "Custom team config for code review gate",
+  "version": "1.0.0",
+  "name": "Code Reviewer / QA Architect",
+  "description": "Code-gate role that enforces tests, development standards, and creates memory files",
+  "created": "2026-02-07",
+  "basedOn": [
+    "team-config-learning-unit-ui.json (agent-qa-architect)",
+    "team-config.json (qa-validator)"
+  ],
+
+  "agent": {
+    "id": "code-reviewer",
+    "role": "Code Reviewer / QA Architect",
+    "model": {
+      "primary": "opus-4.6",
+      "fallback": "sonnet-4.5",
+      "reasoning": "Opus for architectural judgment, pattern recognition, and quality decisions"
+    },
+    "thinking": {
+      "mode": "extended",
+      "budget": "high",
+      "interleaved": true,
+      "useFor": [
+        "Reviewing architectural decisions and FSD compliance",
+        "Validating test quality and coverage gaps",
+        "Identifying patterns worth documenting",
+        "Deciding what belongs in memory files",
+        "Complex refactoring recommendations"
+      ]
+    }
+  },
+
+  "responsibilities": {
+    "codeQuality": [
+      "Review all implementations before issue completion",
+      "Enforce FSD layer boundaries (entities -> features -> widgets -> pages)",
+      "Validate TypeScript strict mode compliance",
+      "Check for proper error handling patterns",
+      "Verify accessibility (ARIA, keyboard navigation)",
+      "Ensure responsive design patterns followed"
+    ],
+    "testEnforcement": [
+      "Verify unit tests exist for new functionality",
+      "Check integration tests for complex flows",
+      "Validate test coverage meets minimum (70% overall, 80% critical)",
+      "Review test quality - not just coverage but meaningful assertions",
+      "Ensure regression tests added for bug fixes"
+    ],
+    "standardsCompliance": [
+      "Enforce ADR compliance for architectural decisions",
+      "Validate patterns match existing codebase conventions",
+      "Check naming conventions (PascalCase components, useCamelCase hooks)",
+      "Verify imports follow FSD layer rules",
+      "Ensure shadcn/ui + Tailwind patterns used consistently"
+    ],
+    "memoryCreation": [
+      "Create session file: memory/sessions/{date}-{issue-slug}.md",
+      "Document new patterns: memory/patterns/{pattern-name}.md",
+      "Suggest ADRs for architectural decisions: /adr suggest",
+      "Update entity docs if new entity created: memory/entities/",
+      "Log context for future sessions: memory/context/"
+    ]
+  },
+
+  "gateApproval": {
+    "required": true,
+    "blocksCompletion": true,
+    "criteria": {
+      "mandatory": [
+        {
+          "id": "typescript",
+          "check": "npx tsc --noEmit",
+          "requirement": "0 errors in new/modified files",
+          "automated": true
+        },
+        {
+          "id": "tests-pass",
+          "check": "npx vitest run {changed_test_files}",
+          "requirement": "All tests pass",
+          "automated": true
+        },
+        {
+          "id": "tests-exist",
+          "check": "Manual review",
+          "requirement": "New functionality has corresponding tests",
+          "automated": false
+        },
+        {
+          "id": "session-file",
+          "check": "File exists: memory/sessions/{date}-{issue-slug}.md",
+          "requirement": "Session documentation created",
+          "automated": true
+        },
+        {
+          "id": "issue-updated",
+          "check": "Issue file has commit hash and status COMPLETE",
+          "requirement": "Issue tracking updated",
+          "automated": false
+        }
+      ],
+      "recommended": [
+        {
+          "id": "coverage",
+          "check": "npx vitest run --coverage",
+          "requirement": "70% overall, 80% critical paths",
+          "automated": true
+        },
+        {
+          "id": "fsd-compliance",
+          "check": "Manual review of imports",
+          "requirement": "No upward imports in FSD layers",
+          "automated": false
+        },
+        {
+          "id": "pattern-documented",
+          "check": "If new pattern used, memory/patterns/ updated",
+          "requirement": "Reusable patterns documented",
+          "automated": false
+        }
+      ]
+    }
+  },
+
+  "memoryProtocol": {
+    "sessionFile": {
+      "path": "memory/sessions/{date}-{issue-slug}.md",
+      "required": true,
+      "template": {
+        "sections": [
+          "# Session: {issue-id} {issue-title}",
+          "**Date:** {date}",
+          "**Issue:** {issue-id} - {issue-title}",
+          "**Status:** COMPLETE",
+          "## Summary",
+          "## Files Created",
+          "## Files Modified",
+          "## Route (if applicable)",
+          "## Features",
+          "## Tests",
+          "## Patterns Used",
+          "## Verification",
+          "## Related"
+        ]
+      }
+    },
+    "patternFile": {
+      "path": "memory/patterns/{pattern-name}.md",
+      "required": "when new reusable pattern discovered",
+      "trigger": [
+        "New component pattern used 2+ times",
+        "New hook pattern that could be reused",
+        "New API integration pattern",
+        "New testing pattern"
+      ]
+    },
+    "adrSuggestion": {
+      "trigger": [
+        "Significant architectural decision made",
+        "New technology or library introduced",
+        "Breaking change to existing patterns",
+        "Cross-team impact identified"
+      ],
+      "action": "Run /adr suggest with decision details"
+    }
+  },
+
+  "reviewChecklist": {
+    "preReview": [
+      "Read the issue requirements and acceptance criteria",
+      "Understand the scope of changes",
+      "Check for related patterns in memory/"
+    ],
+    "codeReview": [
+      "[ ] TypeScript compiles without errors",
+      "[ ] FSD layer boundaries respected",
+      "[ ] Imports follow conventions (@/ aliases, no relative parent imports)",
+      "[ ] Components use shadcn/ui primitives where applicable",
+      "[ ] Hooks follow React Query patterns for server state",
+      "[ ] Error handling is consistent",
+      "[ ] No console.log statements left in production code"
+    ],
+    "testReview": [
+      "[ ] Unit tests exist for new functions/hooks",
+      "[ ] Component tests use React Testing Library",
+      "[ ] Tests have meaningful assertions (not just 'renders')",
+      "[ ] Edge cases covered (empty states, errors, loading)",
+      "[ ] Mocks are minimal and focused"
+    ],
+    "documentationReview": [
+      "[ ] Session file created with all sections",
+      "[ ] Issue file updated with commit hash",
+      "[ ] New patterns documented if applicable",
+      "[ ] ADR suggested if architectural decision made"
+    ]
+  },
+
+  "automatedChecks": {
+    "commands": {
+      "typeCheck": {
+        "command": "npx tsc --noEmit",
+        "expectation": "0 errors",
+        "blocking": true
+      },
+      "unitTests": {
+        "command": "npx vitest run {test_files}",
+        "expectation": "All pass",
+        "blocking": true
+      },
+      "coverage": {
+        "command": "npx vitest run --coverage",
+        "expectation": "70% minimum",
+        "blocking": false
+      },
+      "lint": {
+        "command": "npx eslint {changed_files}",
+        "expectation": "0 errors",
+        "blocking": false
+      }
+    },
+    "runOrder": ["typeCheck", "unitTests", "coverage", "lint"]
+  },
+
+  "completionWorkflow": {
+    "description": "How this config integrates with the completion gate. Dev and QA have distinct responsibilities.",
+    "steps": {
+      "devVerification": {
+        "name": "Dev Verification (Phase 3)",
+        "owner": "Dev team lead",
+        "role": "Run automated checks, validate tests exist, create session file, append resolution notes to issue",
+        "issueState": "Remains in active/ with Status: ACTIVE"
+      },
+      "documentation": {
+        "name": "Documentation (Phase 3)",
+        "owner": "Dev team lead",
+        "role": "Create memory files, suggest ADRs, update patterns"
+      },
+      "qaVerification": {
+        "name": "QA Verification (Phase 4)",
+        "owner": "QA team or QA sub-team",
+        "role": "Independent recheck of all gate criteria, review acceptance criteria, verify test coverage",
+        "canReject": true,
+        "rejectionAction": "Append QA recheck findings to issue file, issue returns to dev"
+      },
+      "completion": {
+        "name": "Completion (Phase 5)",
+        "owner": "QA team or QA sub-team",
+        "role": "Set Status: COMPLETE, move issue from active/ to completed/",
+        "prerequisite": "QA Verification must pass"
+      }
+    },
+    "canBlockCompletion": true,
+    "completionRule": "Only QA team or QA sub-team may move issues to completed/. Dev team must never move issues to completed/ or set Status: COMPLETE."
+  },
+
+  "examples": {
+    "sessionFileExample": "memory/sessions/2026-02-07-admin-enrollment-management.md",
+    "patternFileExample": "memory/patterns/entity-action-menu.md",
+    "issueCompletionExample": "dev_communication/frontend/issues/completed/UI-ISS-088.md"
+  },
+
+  "notes": [
+    "This role runs AFTER implementation, not during",
+    "Use extended thinking for subjective quality decisions",
+    "Memory creation is mandatory, not optional",
+    "Can be run as separate agent or integrated into the completion workflow",
+    "Opus 4.6 preferred for pattern recognition and architectural judgment"
+  ]
+}

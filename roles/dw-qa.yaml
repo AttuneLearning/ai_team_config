@@ -1,0 +1,32 @@
+role_id: dw-qa
+role_name: DW-QA
+team_id: data-warehousing
+function: qa
+issue_prefix: DW-QA
+
+owns:
+  - Verifying data-warehousing changes for correctness and contract alignment
+  - Running QA verification for active DW issues
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Dataset/job reference
+  - Repro steps or verification command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: DW-QA
+  check_scope: team-only
+

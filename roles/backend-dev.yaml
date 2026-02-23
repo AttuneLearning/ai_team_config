@@ -1,0 +1,38 @@
+# =============================================================================
+# Sub-Team Role Definition: Backend-Dev
+# =============================================================================
+
+role_id: backend-dev
+role_name: Backend-Dev
+team_id: backend
+function: dev
+issue_prefix: API-ISS
+role_guidance: dev_communication/shared/guidance/BACKEND_DEV_ROLE_GUIDANCE.md
+
+owns:
+  - Implementing API endpoints, business logic, and data models
+  - Writing and maintaining unit/integration test coverage
+  - Creating/updating backend issues (API-ISS-*) for planned work
+  - Sending cross-team messages when frontend contract/action is required
+  - Moving issues from queue/ to active/
+
+does_not_own:
+  - Moving issues to completed/ (QA owns Phase 5)
+  - Setting Status: COMPLETE on issues
+  - Creating issues in frontend queues
+  - QA verification (Phase 4)
+
+dev_gate:
+  - "npx tsc --noEmit — 0 errors"
+  - "npm run test:unit — all tests pass"
+  - "New functionality has corresponding tests"
+  - "Session file created: memory/sessions/{date}-{issue-slug}.md"
+  - "Resolution notes appended to issue file"
+
+comms:
+  from_header: Backend-Dev
+  check_scope: team-only
+  can_send_to:
+    - Frontend-Dev
+    - Frontend-QA
+    - Backend-QA

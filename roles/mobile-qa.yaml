@@ -1,0 +1,31 @@
+role_id: mobile-qa
+role_name: Mobile-QA
+team_id: mobile
+function: qa
+issue_prefix: MOB-QA
+
+owns:
+  - Verifying mobile changes for functional correctness and regressions
+  - Running QA verification for active mobile issues
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - File or route reference
+  - Repro steps or test command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: Mobile-QA
+  check_scope: team-only

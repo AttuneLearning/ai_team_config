@@ -1,0 +1,219 @@
+# =============================================================================
+# Cross-Team Communication Protocol (Codex Translation)
+# =============================================================================
+#
+# Rules governing how teams interact. The `comms` skill applies these rules.
+# These rules are UNIVERSAL — they apply to every project using this workflow.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core Principle
+# -----------------------------------------------------------------------------
+# Messages cross team boundaries. Issues stay local.
+# Each team owns its own issue queue. Other teams request work via messages.
+
+principles:
+  - Messages cross team boundaries, issues stay local
+  - Each team triages its own inbound messages and creates its own issues
+  - No team creates issues in another team's queue
+  - The human supervisor can create issues anywhere
+  - Commit and push immediately after each completed issue or completed phase milestone
+
+# -----------------------------------------------------------------------------
+# Issue Ownership
+# -----------------------------------------------------------------------------
+
+issues:
+  # Who can create issues in a team's queue
+  creation:
+    allowed_creators:
+      - self     # The team itself
+      - human    # The human supervisor
+    blocked_creators:
+      - other_teams  # Must send a message instead
+
+  # Issue lifecycle — the owning team controls this
+  lifecycle:
+    - queue      # Created, not started
+    - active     # In progress
+    - completed  # Done
+
+  # Naming convention
+  naming: "{TEAM_PREFIX}-ISS-{NNN}_{brief_description}.md"
+
+# -----------------------------------------------------------------------------
+# Messaging
+# -----------------------------------------------------------------------------
+
+messaging:
+  # Directory pattern for message channels
+  # For N active teams, channels are: messaging/{sender}-to-{recipient}/
+  channel_pattern: "messaging/{sender_alias}-to-{recipient_alias}/"
+  archive_dir: "messaging/archive/"
+  template_dir: "messaging/templates/"
+
+  # When to send a message vs. create an issue
+  use_message_for:
+    - Bug reports about another team's code
+    - Requests for new endpoints or features from another team
+    - Status updates that affect another team
+    - Responses to received messages
+    - Contract proposals (endpoint shapes, data formats)
+
+  use_issue_for:
+    - Work items for YOUR OWN team only
+    - Triaged inbound messages converted to local work
+
+  # Message naming convention
+  naming: "YYYY-MM-DD_{subject_slug}.md"
+
+# -----------------------------------------------------------------------------
+# Sub-Teams
+# -----------------------------------------------------------------------------
+
+sub_teams:
+  description: >
+    Teams may optionally define sub-teams (e.g., dev + qa split).
+    Sub-teams share the parent team's inbox and issue directories.
+    Distinction is via From/To headers in messages and issue Requested By/Assigned To fields.
+  rules:
+    - Sub-teams share parent's inbox directory
+    - Sub-teams share parent's issue queue/active/completed directories
+    - Each sub-team has its own issue prefix (e.g., API-ISS for dev, BQA for qa)
+    - Messages use sub-team names in From/To headers for routing
+    - Sub-team role guidance lives in dev_communication/shared/guidance/
+  naming:
+    pattern: "{parent_id}-{function}"
+    examples:
+      - backend-dev
+      - backend-qa
+      - frontend-dev
+      - frontend-qa
+  header_values:
+    description: "Use these in From/To/Requested By/Assigned To fields"
+    format: "{ParentName}-{Function}"
+    examples:
+      - Backend-Dev
+      - Backend-QA
+      - Frontend-Dev
+      - Frontend-QA
+
+# -----------------------------------------------------------------------------
+# Cross-Team Bug Reports
+# -----------------------------------------------------------------------------
+
+bugs:
+  # When you find a bug in another team's code:
+  action: send_message
+  steps:
+    - Describe the bug with evidence (endpoint, expected vs actual)
+    - Include reproduction steps
+    - Set priority based on impact
+    - Send to the responsible team's inbox
+    - Do NOT fix the bug directly in their codebase
+    - Do NOT create an issue in their queue
+
+# -----------------------------------------------------------------------------
+# Cross-Team Feature Requests
+# -----------------------------------------------------------------------------
+
+requests:
+  action: send_message
+  steps:
+    - Define the contract (method, path, request/response shapes)
+    - Include priority and what it blocks on your side
+    - Send to the responsible team's inbox
+    - Wait for their response before building dependent features
+    - Use placeholder/mock data while waiting
+
+# -----------------------------------------------------------------------------
+# Inbound Message Triage
+# -----------------------------------------------------------------------------
+
+triage:
+  # When you receive a message from another team:
+  steps:
+    - Read and assess the message
+    - "If bug report: verify it's your team's responsibility"
+    - "If request: evaluate feasibility and priority"
+    - "If accepted: create a LOCAL issue in your own queue"
+    - "If rejected: respond to sender with explanation"
+    - "If response: update related issue/thread"
+  # The decision to create an issue is ALWAYS the receiving team's
+
+# -----------------------------------------------------------------------------
+# Issue Lifecycle — 5 Phase Workflow
+# -----------------------------------------------------------------------------
+# Every issue follows five mandatory phases. No phase may be skipped.
+# This is the universal lifecycle — all teams follow it regardless of stack.
+
+issue_lifecycle:
+  phases:
+    intake:
+      order: 1
+      description: "Triage inbound work into actionable issues with contracts and context"
+      steps:
+        - "Check comms: /comms to read inbox and identify pending requests"
+        - "Create issues: convert accepted inbound messages into local issues (queue/)"
+        - "Read checklist: dev_communication/guidance/FEATURE_DEVELOPMENT_CHECKLIST.md"
+        - "Define contracts: if work involves new/changed API endpoints, define contracts first and send to other team"
+        - "Check ADRs: review dev_communication/shared/architecture/decisions/ for relevant decisions"
+      exit_criteria:
+        - Issue file exists in queue/ or active/
+        - Contracts sent if endpoint work is involved
+      transitions:
+        issue_file: "queue/ → active/"
+
+    implementation:
+      order: 2
+      description: "Build the feature or fix, with tests, in a verified state"
+      steps:
+        - "Implement the feature or fix"
+        - "Write unit and/or integration tests"
+        - "Run tests: npx jest [path]"
+        - "Verify TypeScript: npx tsc --noEmit (0 errors)"
+        - "When a phase milestone is complete and stable: commit + push immediately"
+      exit_criteria:
+        - Code implemented
+        - Tests written and passing
+        - TypeScript compiles with 0 errors
+
+    qa_gate:
+      order: 3
+      description: "Validate the implementation against completion criteria"
+      steps:
+        - "npx tsc --noEmit — 0 errors"
+        - "npm run test:unit — all tests pass"
+        - "Verify new functionality has corresponding tests"
+        - "Review against code-reviewer-config.json criteria"
+      exit_criteria:
+        - All completion gate checks pass
+        - Code review criteria satisfied
+      on_failure: "Return to implementation phase"
+
+    completion:
+      order: 4
+      description: "Record the work and close the issue"
+      steps:
+        - "Create session file: {memory_root}/sessions/{date}-{issue-slug}.md"
+        - "Update issue file: add commit hash, set status COMPLETE"
+        - "Create completion commit (include issue/phase identifier)"
+        - "Push completion commit to remote immediately"
+        - "Move issue file: active/ → completed/"
+      exit_criteria:
+        - Session file exists
+        - Issue file in completed/ with commit hash
+        - Completion commit is present on remote
+
+    comms_response:
+      order: 5
+      description: "Send response to originating team — NOT optional"
+      condition: "Work was triggered by an inbound message from another team"
+      steps:
+        - "Send response via /comms send to originating team inbox"
+        - "Include: what was fixed/built, what changed, action required on their side"
+        - "Archive original inbound message if not already done"
+      exit_criteria:
+        - Response message exists in originating team's inbox
+        - Original inbound message archived

@@ -1,0 +1,133 @@
+# =============================================================================
+# Cross-Team Communication Protocol
+# =============================================================================
+#
+# Rules governing how teams interact. The /comms skill enforces these.
+# These rules are UNIVERSAL — they apply to every project using this workflow.
+#
+# =============================================================================
+
+principles:
+  - Messages cross team boundaries, issues stay local
+  - Each team triages its own inbound messages and creates its own issues
+  - No team creates issues in another team's queue
+  - The human supervisor can create issues anywhere
+  - Commit and push immediately after each completed issue or phase milestone
+
+# -----------------------------------------------------------------------------
+# Issue Ownership
+# -----------------------------------------------------------------------------
+
+issues:
+  creation:
+    allowed_creators:
+      - self
+      - human
+    blocked_creators:
+      - other_teams
+  lifecycle:
+    - queue
+    - active
+    - completed
+  naming: "{ISSUE_PREFIX}-{NNN}_{brief_description}.md"
+
+# -----------------------------------------------------------------------------
+# Messaging
+# -----------------------------------------------------------------------------
+
+messaging:
+  channel_pattern: "dev_communication/{team}/inbox/"
+  archive_dir: "dev_communication/archive/"
+  template_dir: "dev_communication/templates/"
+  naming: "YYYY-MM-DD_{subject_slug}.md"
+  use_message_for:
+    - Bug reports about another team's code
+    - Requests for new endpoints or features from another team
+    - Status updates that affect another team
+    - Responses to received messages
+    - Contract proposals (endpoint shapes, data formats)
+  use_issue_for:
+    - Work items for YOUR OWN team only
+    - Triaged inbound messages converted to local work
+
+# -----------------------------------------------------------------------------
+# Sub-Teams
+# -----------------------------------------------------------------------------
+
+sub_teams:
+  description: >
+    Teams may define sub-teams (e.g., dev + qa split).
+    Sub-teams share the parent team's inbox and issue directories.
+    Distinction is via From/To headers in messages and issue
+    Requested By/Assigned To fields.
+  rules:
+    - Sub-teams share parent's inbox directory
+    - Sub-teams share parent's issue queue/active/completed directories
+    - Each sub-team has its own issue prefix
+    - Messages use sub-team names in From/To headers for routing
+    - Sub-team role guidance lives in dev_communication/shared/guidance/
+  header_values:
+    format: "{TeamName}-{Function}"
+    examples:
+      - Backend-Dev
+      - Backend-QA
+      - Frontend-Dev
+      - Frontend-QA
+
+# -----------------------------------------------------------------------------
+# Issue Lifecycle — 6 Phase Workflow
+# -----------------------------------------------------------------------------
+
+issue_lifecycle:
+  phases:
+    intake:
+      order: 1
+      description: "Triage inbound work into actionable issues with contracts and context"
+      owner: "dev or qa (whoever receives)"
+    implementation:
+      order: 2
+      description: "Build the feature or fix, with tests, in a verified state"
+      owner: "dev sub-team"
+    dev_verification:
+      order: 3
+      description: "Run automated checks, create session file, append resolution notes"
+      owner: "dev sub-team lead"
+      issue_state: "Remains in active/ with Status: ACTIVE"
+    qa_verification:
+      order: 4
+      description: "Independent recheck of all gate criteria"
+      owner: "qa sub-team"
+      can_reject: true
+    completion:
+      order: 5
+      description: "Set Status: COMPLETE, move issue from active/ to completed/"
+      owner: "qa sub-team ONLY"
+      prerequisite: "QA Verification must pass"
+    comms_response:
+      order: 6
+      description: "Send response to originating team if cross-team work"
+      condition: "Work was triggered by an inbound message"
+      owner: "whichever sub-team completed the work"
+
+# -----------------------------------------------------------------------------
+# Cross-Team Bug Reports & Feature Requests
+# -----------------------------------------------------------------------------
+
+bugs:
+  action: send_message
+  steps:
+    - Describe the bug with evidence
+    - Include reproduction steps
+    - Set priority based on impact
+    - Send to responsible team's inbox
+    - Do NOT fix directly in their codebase
+    - Do NOT create an issue in their queue
+
+requests:
+  action: send_message
+  steps:
+    - Define the contract (method, path, request/response shapes)
+    - Include priority and what it blocks on your side
+    - Send to responsible team's inbox
+    - Wait for response before building dependent features
+    - Use placeholder/mock data while waiting

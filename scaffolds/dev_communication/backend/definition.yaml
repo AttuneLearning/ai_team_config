@@ -1,0 +1,42 @@
+# =============================================================================
+# Team Definition — Backend
+# =============================================================================
+#
+# Describes this team's identity, responsibilities, and tech stack.
+# Each team workspace has one of these.
+#
+# =============================================================================
+
+team:
+  id: backend
+  name: Backend
+  alias: api
+  role: backend                       # Must match a role in teams/catalog.yaml
+
+responsibilities:
+  - API development and endpoint design
+  - Database schema and migrations
+  - Authentication and authorization
+  - Business logic and validation
+  - Background jobs and integrations
+
+stack:
+  # Canonical source: package.json (Node/npm projects) or equivalent manifest
+  # Do not duplicate dependency or tooling info here.
+  # Agents should read the project manifest to determine framework, database driver, test runner, etc.
+  source: package.json
+
+conventions:
+  issue_prefix: API-ISS
+  branch_prefix: api/
+
+# Optional: Sub-team identities that share this team's inbox/issues
+sub_teams:
+  backend-dev:
+    name: Backend-Dev
+    function: dev
+    issue_prefix: API-ISS
+  backend-qa:
+    name: Backend-QA
+    function: qa
+    issue_prefix: BQA

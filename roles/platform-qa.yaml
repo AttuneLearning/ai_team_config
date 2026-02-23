@@ -1,0 +1,32 @@
+role_id: platform-qa
+role_name: Platform-QA
+team_id: platform
+function: qa
+issue_prefix: PLAT-QA
+
+owns:
+  - Verifying shared tooling/platform changes
+  - Running QA verification for active platform issues
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - Tooling/workflow reference
+  - Repro steps or verification command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+
+comms:
+  from_header: Platform-QA
+  check_scope: team-only
+

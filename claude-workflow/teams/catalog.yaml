@@ -1,0 +1,156 @@
+# =============================================================================
+# Team Role Catalog
+# =============================================================================
+#
+# Generic team role definitions. These are TEMPLATES — they describe what each
+# team role does in general, not project-specific details.
+#
+# Project-specific team configuration (which roles are active, what they own,
+# tech stack) lives in dev_communication/teams/ within each project.
+#
+# =============================================================================
+
+roles:
+
+  frontend:
+    name: Frontend
+    description: >
+      Client-side application development. Owns the browser/app runtime,
+      component architecture, state management, and user experience.
+    sub_roles:
+      - id: ui-development
+        name: UI Development
+        description: Page and component implementation, routing, forms
+      - id: design-system
+        name: Design System / Components
+        description: Shared component library, tokens, theming
+      - id: accessibility
+        name: Accessibility
+        description: WCAG compliance, screen reader support, keyboard navigation
+      - id: performance
+        name: Performance
+        description: Bundle optimization, Core Web Vitals, lazy loading
+      - id: state-data-layer
+        name: State / Data Layer
+        description: Client state management, API integration hooks, caching
+
+  backend:
+    name: Backend
+    description: >
+      Server-side API development. Owns the database, business logic,
+      authentication, authorization, and all service integrations.
+    sub_roles:
+      - id: api-development
+        name: API Development
+        description: Route handlers, controllers, request validation, response shaping
+      - id: app-data
+        name: App Data
+        description: Schema design, migrations, query optimization, indexing, caching
+      - id: auth
+        name: Auth / Authorization
+        description: Authentication flows, RBAC, permissions, session management
+      - id: integrations
+        name: Integrations
+        description: Third-party service connections, webhooks, external APIs
+      - id: background-jobs
+        name: Background Jobs / Workers
+        description: Queue processing, scheduled tasks, async operations
+
+  mobile:
+    name: Mobile
+    description: >
+      Native and cross-platform mobile application development.
+    sub_roles:
+      - id: ios
+        name: iOS
+        description: Swift/SwiftUI native iOS development
+      - id: android
+        name: Android
+        description: Kotlin/Jetpack Compose native Android development
+      - id: cross-platform
+        name: Cross-Platform
+        description: React Native or Flutter shared codebase
+      - id: app-distribution
+        name: App Distribution
+        description: App Store/Play Store submissions, signing, OTA updates
+
+  cloud:
+    name: Cloud / Infrastructure
+    description: >
+      Infrastructure, deployment pipelines, and operational reliability.
+    sub_roles:
+      - id: architecture
+        name: Architecture
+        description: Cloud resource design, networking, scaling strategies
+      - id: cicd
+        name: CI/CD Pipelines
+        description: Build, test, and deployment automation
+      - id: observability
+        name: Monitoring / Observability
+        description: Logging, metrics, alerting, tracing, dashboards
+      - id: security-compliance
+        name: Security / Compliance
+        description: Vulnerability scanning, audit trails, regulatory compliance
+      - id: cost-optimization
+        name: Cost Optimization
+        description: Resource right-sizing, reserved capacity, waste elimination
+
+  data-warehousing:
+    name: Data Warehousing
+    description: >
+      Analytical data infrastructure. Everything downstream of the production
+      database — extraction, transformation, reporting, and machine learning.
+    sub_roles:
+      - id: etl-pipelines
+        name: ETL/ELT Pipelines
+        description: Data extraction, transformation, loading (Airflow, dbt, Spark)
+      - id: analytics-bi
+        name: Analytics / BI / Reporting
+        description: Dashboards, ad-hoc queries, executive reporting
+      - id: data-governance
+        name: Data Governance
+        description: Data lineage, PII compliance, quality rules, cataloging
+      - id: ml-ai
+        name: Machine Learning / AI
+        description: Model training, serving, feature stores, experiments
+      - id: streaming
+        name: Real-Time Streaming
+        description: Event processing, Kafka, CDC, real-time analytics
+
+  qa:
+    name: QA
+    description: >
+      Quality assurance and test engineering. Owns test strategy,
+      automation frameworks, and release quality gates.
+    sub_roles:
+      - id: manual-qa
+        name: Manual QA
+        description: Exploratory testing, regression testing, UAT coordination
+      - id: test-automation
+        name: Test Automation
+        description: E2E frameworks, integration test suites, CI test pipelines
+      - id: performance-testing
+        name: Performance Testing
+        description: Load testing, stress testing, benchmark suites
+      - id: security-testing
+        name: Security Testing
+        description: Penetration testing, OWASP scanning, vulnerability assessment
+
+  platform:
+    name: Platform
+    description: >
+      Shared developer tooling, SDKs, and internal infrastructure that
+      other teams build on top of.
+    sub_roles:
+      - id: developer-experience
+        name: Developer Experience / Tooling
+        description: Local dev setup, CLI tools, code generators, linters
+      - id: sdk-api-design
+        name: SDK / API Design
+        description: Shared libraries, API contracts, client SDKs
+      - id: internal-tools
+        name: Internal Tools
+        description: Admin dashboards, debug tools, operational UIs
+      - id: documentation
+        name: Documentation
+        description: API docs, architecture docs, onboarding guides

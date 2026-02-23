@@ -1,0 +1,201 @@
+{
+  "version": "2.0.0",
+  "description": "Team profiles consumed by the installer. Each profile defines paths, sub-teams, and enabled skills for a top-level team.",
+  "teams": {
+    "frontend": {
+      "name": "Frontend",
+      "alias": "ui",
+      "issue_prefix": "UI-ISS",
+      "sub_teams": {
+        "frontend-dev": {
+          "name": "Frontend-Dev",
+          "function": "dev",
+          "issue_prefix": "UI-ISS",
+          "role_guidance": "dev_communication/shared/guidance/FRONTEND_DEV_ROLE_GUIDANCE.md"
+        },
+        "frontend-qa": {
+          "name": "Frontend-QA",
+          "function": "qa",
+          "issue_prefix": "UI-QA",
+          "role_guidance": "dev_communication/shared/guidance/FRONTEND_QA_ROLE_GUIDANCE.md"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/frontend/inbox",
+        "issues_queue": "dev_communication/frontend/issues/queue",
+        "issues_active": "dev_communication/frontend/issues/active",
+        "issues_completed": "dev_communication/frontend/issues/completed",
+        "other_team_inbox": "dev_communication/backend/inbox",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/frontend/status.md"
+      }
+    },
+    "backend": {
+      "name": "Backend",
+      "alias": "api",
+      "issue_prefix": "API-ISS",
+      "sub_teams": {
+        "backend-dev": {
+          "name": "Backend-Dev",
+          "function": "dev",
+          "issue_prefix": "API-ISS",
+          "role_guidance": "dev_communication/shared/guidance/BACKEND_DEV_ROLE_GUIDANCE.md"
+        },
+        "backend-qa": {
+          "name": "Backend-QA",
+          "function": "qa",
+          "issue_prefix": "BQA",
+          "role_guidance": "dev_communication/shared/guidance/BACKEND_QA_ROLE_GUIDANCE.md"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/backend/inbox",
+        "issues_queue": "dev_communication/backend/issues/queue",
+        "issues_active": "dev_communication/backend/issues/active",
+        "issues_completed": "dev_communication/backend/issues/completed",
+        "other_team_inbox": "dev_communication/frontend/inbox",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/backend/status.md"
+      }
+    },
+    "mobile": {
+      "name": "Mobile",
+      "alias": "mobile",
+      "issue_prefix": "MOB-ISS",
+      "sub_teams": {
+        "mobile-dev": {
+          "name": "Mobile-Dev",
+          "function": "dev",
+          "issue_prefix": "MOB-ISS"
+        },
+        "mobile-qa": {
+          "name": "Mobile-QA",
+          "function": "qa",
+          "issue_prefix": "MOB-QA"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/mobile/inbox",
+        "issues_queue": "dev_communication/mobile/issues/queue",
+        "issues_active": "dev_communication/mobile/issues/active",
+        "issues_completed": "dev_communication/mobile/issues/completed",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/mobile/status.md"
+      }
+    },
+    "cloud": {
+      "name": "Cloud / Infrastructure",
+      "alias": "cloud",
+      "issue_prefix": "CLOUD-ISS",
+      "sub_teams": {
+        "cloud-dev": {
+          "name": "Cloud-Dev",
+          "function": "dev",
+          "issue_prefix": "CLOUD-ISS"
+        },
+        "cloud-qa": {
+          "name": "Cloud-QA",
+          "function": "qa",
+          "issue_prefix": "CLOUD-QA"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/cloud/inbox",
+        "issues_queue": "dev_communication/cloud/issues/queue",
+        "issues_active": "dev_communication/cloud/issues/active",
+        "issues_completed": "dev_communication/cloud/issues/completed",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/cloud/status.md"
+      }
+    },
+    "data-warehousing": {
+      "name": "Data Warehousing",
+      "alias": "dw",
+      "issue_prefix": "DW-ISS",
+      "sub_teams": {
+        "dw-dev": {
+          "name": "DW-Dev",
+          "function": "dev",
+          "issue_prefix": "DW-ISS"
+        },
+        "dw-qa": {
+          "name": "DW-QA",
+          "function": "qa",
+          "issue_prefix": "DW-QA"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/data-warehousing/inbox",
+        "issues_queue": "dev_communication/data-warehousing/issues/queue",
+        "issues_active": "dev_communication/data-warehousing/issues/active",
+        "issues_completed": "dev_communication/data-warehousing/issues/completed",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/data-warehousing/status.md"
+      }
+    },
+    "qa": {
+      "name": "QA",
+      "alias": "qa",
+      "issue_prefix": "QA-ISS",
+      "sub_teams": {
+        "qa-manual": {
+          "name": "QA-Manual",
+          "function": "manual",
+          "issue_prefix": "QA-ISS"
+        },
+        "qa-automation": {
+          "name": "QA-Automation",
+          "function": "automation",
+          "issue_prefix": "QA-AUTO"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/qa/inbox",
+        "issues_queue": "dev_communication/qa/issues/queue",
+        "issues_active": "dev_communication/qa/issues/active",
+        "issues_completed": "dev_communication/qa/issues/completed",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/qa/status.md"
+      }
+    },
+    "platform": {
+      "name": "Platform",
+      "alias": "platform",
+      "issue_prefix": "PLAT-ISS",
+      "sub_teams": {
+        "platform-dev": {
+          "name": "Platform-Dev",
+          "function": "dev",
+          "issue_prefix": "PLAT-ISS"
+        },
+        "platform-qa": {
+          "name": "Platform-QA",
+          "function": "qa",
+          "issue_prefix": "PLAT-QA"
+        }
+      },
+      "enabled_skills": ["comms", "adr", "memory", "context", "reflect", "refine"],
+      "default_paths": {
+        "inbox": "dev_communication/platform/inbox",
+        "issues_queue": "dev_communication/platform/issues/queue",
+        "issues_active": "dev_communication/platform/issues/active",
+        "issues_completed": "dev_communication/platform/issues/completed",
+        "architecture_root": "dev_communication/shared/architecture",
+        "memory_root": "./memory",
+        "status": "dev_communication/platform/status.md"
+      }
+    }
+  }
+}
