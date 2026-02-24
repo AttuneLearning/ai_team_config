@@ -90,6 +90,16 @@ Instead of relying on slash-commands, these skills should be invoked based on us
 - "reflect on this implementation" -> `reflect`
 - "review and promote patterns" -> `refine`
 
+## QA Polling Runner
+
+Frontend-QA and Backend-QA can run the shared cycle script from repository root:
+
+```bash
+ai_team_config/scripts/qa_poll_cycle.sh --once
+ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
+ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
+```
+
 ## Team profile usage inside skills
 
 Skills should resolve team defaults from:

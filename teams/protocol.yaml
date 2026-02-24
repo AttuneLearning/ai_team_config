@@ -13,6 +13,7 @@ principles:
   - No team creates issues in another team's queue
   - The human supervisor can create issues anywhere
   - Commit and push immediately after each completed issue or phase milestone
+  - QA completion decisions must follow ai_team_config shared QA gate checklist
 
 # -----------------------------------------------------------------------------
 # Issue Ownership
@@ -49,6 +50,22 @@ messaging:
   use_issue_for:
     - Work items for YOUR OWN team only
     - Triaged inbound messages converted to local work
+
+# -----------------------------------------------------------------------------
+# QA Gate Enforcement
+# -----------------------------------------------------------------------------
+
+qa_gate:
+  checklist_file: "ai_team_config/teams/checklists/qa-gate.yaml"
+  runner: "ai_team_config/scripts/qa_poll_cycle.sh"
+  polling_default_seconds: 240
+  completion_policy:
+    - Only QA sub-teams can complete issues
+    - QA completion requires gate evidence and a PASS verdict
+    - Gate evidence must include test execution + manual review checklist
+  message_closure:
+    preferred: "dev_communication/{team}/inbox/completed/"
+    fallback: "dev_communication/archive/"
 
 # -----------------------------------------------------------------------------
 # Sub-Teams
@@ -98,11 +115,17 @@ issue_lifecycle:
       description: "Independent recheck of all gate criteria"
       owner: "qa sub-team"
       can_reject: true
+      checklist: "ai_team_config/teams/checklists/qa-gate.yaml"
+      required_evidence:
+        - test execution status (unit/integration/uat)
+        - coverage assessment + missing test recommendations
+        - manual code review notes (efficiency, accuracy, duplication, security, ADR conformance)
     completion:
       order: 5
       description: "Set Status: COMPLETE, move issue from active/ to completed/"
       owner: "qa sub-team ONLY"
       prerequisite: "QA Verification must pass"
+      enforced_by: "ai_team_config/scripts/qa_poll_cycle.sh --approve"
     comms_response:
       order: 6
       description: "Send response to originating team if cross-team work"

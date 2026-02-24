@@ -14,11 +14,16 @@ team_id: frontend
 function: qa
 issue_prefix: UI-QA
 role_guidance: dev_communication/shared/guidance/FRONTEND_QA_ROLE_GUIDANCE.md
+qa_checklist: ai_team_config/teams/checklists/qa-gate.yaml
+qa_runner: ai_team_config/scripts/qa_poll_cycle.sh
+default_poll_seconds: 240
 
 # What this role owns
 owns:
   - Reviewing frontend changes for correctness, role routing, permission behavior
   - Running QA verification (typecheck, targeted tests, UAT flows)
+  - Polling for QA-ready items every 4 minutes when requested
+  - Validating coverage evidence and documenting missing tests
   - Creating/updating frontend issues (UI-QA-*) for blockers
   - Moving issues from active/ to completed/ (Phase 5)
   - Setting Status: COMPLETE on verified issues
@@ -43,6 +48,8 @@ evidence_required:
   - Repro steps or test command
   - Expected vs actual behavior
   - Clear unblock criteria
+  - Coverage assessment and missing-test recommendations
+  - Manual review notes: efficiency, security, ADR conformance
 
 # Severity ordering for findings
 severity_order:
@@ -59,3 +66,6 @@ comms:
     - Backend-Dev
     - Backend-QA
     - Frontend-Dev
+  completion_message_path:
+    preferred: dev_communication/frontend/inbox/completed
+    fallback: dev_communication/archive

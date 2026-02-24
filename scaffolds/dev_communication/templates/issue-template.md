@@ -19,6 +19,22 @@
 
 [Additional context]
 
+## Dev Handoff to QA
+
+- [ ] Development Complete
+- [ ] Awaiting QA
+- [ ] Typecheck passed
+- [ ] Unit tests passed
+- [ ] Integration tests passed
+- [ ] UAT tests passed
+
+## QA Verification Evidence
+
+- QA Verdict: Pass | Pass with Conditions | Blocked | Need More Info
+- Coverage Assessment: (map acceptance criteria to tests; list missing tests or "none")
+- Manual Review: efficiency | accuracy | non-duplication | security | ADR conformance
+- Unblock Criteria (required if blocked):
+
 ## Completion
 
 **Completed:** (date)

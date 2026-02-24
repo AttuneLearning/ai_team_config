@@ -199,6 +199,11 @@ If any check fails, return to Phase 2.
 
 Independent verification by QA before the issue can be closed. Dev does not perform this phase.
 
+Use shared checklist:
+- `ai_team_config/teams/checklists/qa-gate.yaml`
+- `dev_communication/shared/guidance/QA_POLLING_CHECKLIST.md`
+- Runner: `ai_team_config/scripts/qa_poll_cycle.sh`
+
 1. **Recheck implementation** — Run the same gate checks independently:
    - [ ] `npx tsc --noEmit` — 0 errors
    - [ ] `npx vitest run` — all tests pass
@@ -208,6 +213,9 @@ Independent verification by QA before the issue can be closed. Dev does not perf
 4. **Decision:**
    - **Pass** → Proceed to Phase 5 (Completion)
    - **Fail** → Append QA recheck findings to issue file, set `QA decision: Blocked`, issue returns to dev for Phase 2
+
+Recommended QA polling command:
+- `ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240`
 
 ### Phase 5: Completion — *Owner: QA Team or QA Sub-team*
 

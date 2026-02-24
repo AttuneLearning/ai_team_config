@@ -98,6 +98,16 @@ claude-dev-workflow/
 3. **Post-implementation**: Run `/reflect` to capture learnings
 4. **Refinement**: Run `/refine` when patterns accumulate (5+ uses)
 
+## QA Polling Runner
+
+Frontend-QA and Backend-QA can run the shared cycle script from repository root:
+
+```bash
+ai_team_config/scripts/qa_poll_cycle.sh --once
+ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
+ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
+```
+
 ## Scaffolds
 
 ### dev_communication/

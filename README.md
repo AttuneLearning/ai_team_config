@@ -65,6 +65,7 @@ ai_team_config/
 ├── teams/                     # Team structure definitions
 │   ├── catalog.yaml           #   All available team types
 │   ├── protocol.yaml          #   Cross-team communication rules
+│   ├── checklists/            #   Shared QA and lifecycle checklists
 │   └── profiles.json          #   Team profiles (consumed by installer)
 │
 ├── roles/                     # Sub-team role definitions
@@ -116,6 +117,27 @@ The active role contract is canonicalized to `./active-role.json` in the project
 - `.claude/active-role.json`
 - `.codex-workflow/config/active-role.json`
 - `.codex-workflow/config/active-agent-role.json` (legacy alias)
+
+## QA Polling Runner
+
+Shared QA checklist:
+- `ai_team_config/teams/checklists/qa-gate.yaml`
+
+Agent-runnable QA cycle script:
+- `ai_team_config/scripts/qa_poll_cycle.sh`
+
+Examples:
+
+```bash
+# one-shot QA poll + verification
+ai_team_config/scripts/qa_poll_cycle.sh --once
+
+# mark passing issues complete (after manual review)
+ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
+
+# poll every 4 minutes
+ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
+```
 
 ### Switching Roles
 

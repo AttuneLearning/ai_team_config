@@ -32,6 +32,30 @@ Path variables used below:
 - `{other_inbox}` — `dev_communication/{other_team}/inbox/`
 - `{my_status}` — `dev_communication/{my_team}/status.md`
 
+QA gate references:
+- Checklist: `ai_team_config/teams/checklists/qa-gate.yaml`
+- Runner: `ai_team_config/scripts/qa_poll_cycle.sh`
+
+## Contracts — Source of Truth (MANDATORY)
+
+Shared contract DTOs live in `dev_communication/shared/contracts/`. These are the **canonical source of truth** for all API request/response shapes between teams.
+
+**Rules:**
+1. **Consume contracts directly.** Frontend types for API responses must align to the contract DTOs. Do not invent local type shapes that differ from the contract.
+2. **Never write normalizers, transforms, or compatibility shims.** If the backend response doesn't match what the frontend needs, that is a contract gap — not a normalization opportunity. Do not cast responses to `Record<string, unknown>`, `any`, or `unknown` to reshape them.
+3. **When a contract is insufficient, SEND A MESSAGE to the other team** (`/comms send`). Describe what is needed, what the contract currently provides, and which endpoint is affected. Reference the contract file. This is the entire purpose of `/comms` — surface mismatches, don't hide them.
+4. **Backend defines contracts, frontend consumes them.** Frontend requests changes to contracts via `/comms send`. Backend updates the contract and the implementation. Frontend then consumes the updated DTO directly.
+
+**Prohibited patterns:**
+- Silent field renames (e.g., `order` → `sequence` in a transform layer)
+- Silent format conversions (e.g., `in_progress` → `in-progress` in a mapping function)
+- Derived fields (e.g., inferring `dataSource` from `playerType` instead of reading it from the response)
+- Fallback defaults that mask missing data (e.g., `?? 'quiz'`, `?? 'in-progress'`)
+
+**Reference:** ADR-DEV-004-CONSUME-CONTRACTS-DIRECTLY-NO-NORMALIZERS
+
+---
+
 ## Actions
 
 Based on the user's request or argument, perform one of these actions:
@@ -57,6 +81,15 @@ Project policy:
 - Default check scope is team-local only.
 - Backend-specific default: when operating as backend, read only `dev_communication/backend/*` unless the user explicitly asks for cross-team scope.
 - Include cross-team folders only when explicitly requested by the user.
+
+QA polling policy:
+- For `*-qa` roles, `check` must include detection of items marked `Development Complete` or `Awaiting QA`.
+- If user requests repeated polling (for example "every 4 minutes"), run:
+  - `ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240`
+- One-shot QA cycle:
+  - `ai_team_config/scripts/qa_poll_cycle.sh --once`
+- Approval pass (after manual review is done):
+  - `ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve`
 
 **Output format:**
 ```
@@ -163,6 +196,13 @@ Move an issue through lifecycle.
 - After dev verification, issues remain in `active/` until QA independently verifies and moves them.
 - If a dev agent attempts to move an issue to `completed/`, reject the action and remind them that QA owns this step.
 
+**QA completion gate (mandatory):**
+- Before moving to `completed/`, QA must verify checklist requirements in `ai_team_config/teams/checklists/qa-gate.yaml`:
+  - Coverage assessment (including missing-test recommendations)
+  - Unit, integration, and UAT gate status
+  - Manual review notes (efficiency, accuracy, non-duplication, security, ADR conformance)
+- If any required gate is missing or failed, keep issue in `active/`, append QA findings, and send unblock criteria to dev.
+
 ---
 
 ### 6. ARCHIVE
@@ -195,7 +235,8 @@ dev_communication/
 │   ├── guidance/                 # Development principles, role guidance
 │   ├── plans/                    # Shared plans
 │   ├── specs/                    # Feature specs
-│   └── contracts/                # Endpoint contracts
+│   └── contracts/                # Shared contract DTOs (source of truth for API shapes)
+│       └── types/               # TypeScript DTO definitions — backend defines, frontend consumes
 ├── templates/                    # Message and issue templates
 └── archive/                      # Archived message threads
 ```
@@ -206,3 +247,6 @@ After completing work, suggest:
 - "This affects {other-team} team. Send a notification? (`/comms send`)"
 - "Issue complete. Move to completed? (`/comms move`)"
 - "New requirement discovered. Create issue? (`/comms issue`)"
+
+When encountering a mismatch between backend response and frontend expectations:
+- "Contract gap detected. Send a request to {other-team}? (`/comms send`)" — **ALWAYS** do this instead of writing a normalizer or transform.

@@ -14,6 +14,10 @@ Manage inter-team communication, issues, and coordination.
 /comms [action] [options]
 ```
 
+QA gate references:
+- Checklist: `ai_team_config/teams/checklists/qa-gate.yaml`
+- Runner: `ai_team_config/scripts/qa_poll_cycle.sh`
+
 ## Actions
 
 Based on the user's request or argument, perform one of these actions:
@@ -39,6 +43,15 @@ Project policy:
 - Default check scope is team-local only.
 - In API/backend projects, `/comms` checks only backend inbox/issues by default.
 - Include frontend/cross-team folders only when explicitly requested by the user.
+
+QA polling policy:
+- For `*-qa` roles, `check` must include detection of items marked `Development Complete` or `Awaiting QA`.
+- If user requests repeated polling (for example "every 4 minutes"), run:
+  - `ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240`
+- One-shot QA cycle:
+  - `ai_team_config/scripts/qa_poll_cycle.sh --once`
+- Approval pass (after manual review is done):
+  - `ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve`
 
 **Output format:**
 ```
@@ -168,6 +181,13 @@ Move an issue through lifecycle.
 - Dev teams move issues from `queue/` to `active/` only.
 - After dev verification, issues remain in `active/` until QA independently verifies and moves them.
 - If a dev agent attempts to move an issue to `completed/`, reject the action and remind them that QA owns this step.
+
+**QA completion gate (mandatory):**
+- Before moving to `completed/`, QA must verify checklist requirements in `ai_team_config/teams/checklists/qa-gate.yaml`:
+  - Coverage assessment (including missing-test recommendations)
+  - Unit, integration, and UAT gate status
+  - Manual review notes (efficiency, accuracy, non-duplication, security, ADR conformance)
+- If any required gate is missing or failed, keep issue in `active/`, append QA findings, and send unblock criteria to dev.
 
 ---
 

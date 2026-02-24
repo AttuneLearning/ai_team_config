@@ -19,6 +19,7 @@ principles:
   - No team creates issues in another team's queue
   - The human supervisor can create issues anywhere
   - Commit and push immediately after each completed issue or completed phase milestone
+  - QA completion decisions must follow ai_team_config shared QA gate checklist
 
 # -----------------------------------------------------------------------------
 # Issue Ownership
@@ -143,6 +144,19 @@ triage:
   # The decision to create an issue is ALWAYS the receiving team's
 
 # -----------------------------------------------------------------------------
+# QA Gate Enforcement
+# -----------------------------------------------------------------------------
+
+qa_gate:
+  checklist_file: "ai_team_config/teams/checklists/qa-gate.yaml"
+  runner: "ai_team_config/scripts/qa_poll_cycle.sh"
+  polling_default_seconds: 240
+  completion_policy:
+    - Only QA sub-teams can complete issues
+    - QA completion requires gate evidence and a PASS verdict
+    - Gate evidence must include test execution + manual review checklist
+
+# -----------------------------------------------------------------------------
 # Issue Lifecycle — 5 Phase Workflow
 # -----------------------------------------------------------------------------
 # Every issue follows five mandatory phases. No phase may be skipped.
@@ -185,8 +199,10 @@ issue_lifecycle:
       steps:
         - "npx tsc --noEmit — 0 errors"
         - "npm run test:unit — all tests pass"
+        - "Run integration and UAT checks (or document explicit skip reason)"
         - "Verify new functionality has corresponding tests"
         - "Review against code-reviewer-config.json criteria"
+        - "Apply qa checklist: ai_team_config/teams/checklists/qa-gate.yaml"
       exit_criteria:
         - All completion gate checks pass
         - Code review criteria satisfied
