@@ -9,6 +9,10 @@ function: dev
 issue_prefix: API-ISS
 role_guidance: dev_communication/shared/guidance/BACKEND_DEV_ROLE_GUIDANCE.md
 workflow: ai_team_config/teams/checklists/dev-issue-lifecycle-backend.yaml
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
 
 owns:
   - Implementing API endpoints, business logic, and data models

@@ -12,6 +12,7 @@ Options:
   --team TEAM               Team id (frontend|backend). Auto-detected from active-role.json if omitted.
   --role ROLE               Role id (frontend-qa|backend-qa). Auto-detected from active-role.json if omitted.
   --interval SECONDS        Poll interval when --watch is used (default: 240)
+  --idle-stop-seconds N     Stop watch mode after N seconds with no inbox/active issue changes (default: 1800)
   --watch                   Run continuously
   --once                    Run a single poll cycle (default)
   --approve                 If gates pass, set issue to COMPLETE and move active -> completed
@@ -50,6 +51,7 @@ repo_root="$(pwd)"
 team_id=""
 role_id=""
 poll_interval=240
+idle_stop_seconds=1800
 watch_mode=0
 approve_mode=0
 manual_ok=0
@@ -65,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     --team) team_id="$2"; shift 2 ;;
     --role) role_id="$2"; shift 2 ;;
     --interval) poll_interval="$2"; shift 2 ;;
+    --idle-stop-seconds) idle_stop_seconds="$2"; shift 2 ;;
     --watch) watch_mode=1; shift 1 ;;
     --once) watch_mode=0; shift 1 ;;
     --approve) approve_mode=1; shift 1 ;;
@@ -82,6 +85,11 @@ done
 
 if ! [[ "$poll_interval" =~ ^[0-9]+$ ]]; then
   err "--interval must be a positive integer"
+  exit 1
+fi
+
+if ! [[ "$idle_stop_seconds" =~ ^[0-9]+$ ]]; then
+  err "--idle-stop-seconds must be a non-negative integer"
   exit 1
 fi
 
@@ -119,7 +127,7 @@ if [[ "$team_id" != "frontend" && "$team_id" != "backend" ]]; then
   exit 1
 fi
 
-ready_regex='Development Complete|Awaiting QA|QA Ready|Ready for QA'
+ready_regex='Development Complete|Awaiting QA|QA Ready|Ready for QA|QA Review Request|QA Re-Verification Request|QA Reverification Request|Re-Verification Request|Reverification Request|QA Recheck|QA Re-check'
 timestamp_utc() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
@@ -422,6 +430,24 @@ issue_has_qa_marker() {
   [[ "$qa_state" == "PENDING" ]]
 }
 
+issue_has_ready_inbox_marker() {
+  local issue_id="$1"
+  local msg_file
+  while IFS= read -r msg_file; do
+    if grep -Eiq "$issue_id" "$msg_file"; then
+      return 0
+    fi
+  done < <(find "$inbox_dir" -maxdepth 1 -type f -name '*.md' -exec grep -Eil "$ready_regex" {} + 2>/dev/null || true)
+  return 1
+}
+
+snapshot_poll_state() {
+  {
+    find "$inbox_dir" -maxdepth 1 -type f -name '*.md' -printf 'inbox/%f|%T@|%s\n' 2>/dev/null || true
+    find "$issues_active_dir" -maxdepth 1 -type f -name '*.md' -printf 'active/%f|%T@|%s\n' 2>/dev/null || true
+  } | sort | sha256sum | awk '{print $1}'
+}
+
 issue_already_reviewed() {
   local issue_file="$1"
   grep -Eq '^## QA Verification \(' "$issue_file"
@@ -579,11 +605,13 @@ process_cycle() {
       continue
     fi
 
-    if [[ -z "$issue_filter" ]] && ! issue_has_qa_marker "$candidate"; then
+    if [[ -z "$issue_filter" ]] && ! issue_has_qa_marker "$candidate" && ! issue_has_ready_inbox_marker "$issue_id"; then
       continue
     fi
 
-    if [[ "$recheck_existing" -eq 0 ]] && issue_already_reviewed "$candidate"; then
+    local qa_state
+    qa_state="$(extract_issue_field_value "$candidate" "QA" | tr '[:lower:]' '[:upper:]')"
+    if [[ "$recheck_existing" -eq 0 ]] && issue_already_reviewed "$candidate" && [[ "$qa_state" != "PENDING" ]]; then
       log "Skipping $issue_id (already has QA Verification; use --recheck-existing to force)."
       continue
     fi
@@ -594,8 +622,32 @@ process_cycle() {
 
 main() {
   if [[ "$watch_mode" -eq 1 ]]; then
+    local prev_snapshot
+    local last_change_epoch
+    prev_snapshot="$(snapshot_poll_state)"
+    last_change_epoch="$(date +%s)"
     while true; do
       process_cycle
+      local current_snapshot
+      local now_epoch
+      local idle_seconds
+      current_snapshot="$(snapshot_poll_state)"
+      now_epoch="$(date +%s)"
+
+      if [[ "$current_snapshot" == "$prev_snapshot" ]]; then
+        idle_seconds=$((now_epoch - last_change_epoch))
+        log "No inbox/active issue changes detected (idle=${idle_seconds}s)."
+      else
+        prev_snapshot="$current_snapshot"
+        last_change_epoch="$now_epoch"
+      fi
+
+      idle_seconds=$((now_epoch - last_change_epoch))
+      if [[ "$idle_stop_seconds" -gt 0 && "$idle_seconds" -ge "$idle_stop_seconds" ]]; then
+        log "Idle limit reached (${idle_stop_seconds}s). Stopping watch mode."
+        break
+      fi
+
       log "Sleeping ${poll_interval}s before next poll."
       sleep "$poll_interval"
     done

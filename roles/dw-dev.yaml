@@ -4,6 +4,11 @@ team_id: data-warehousing
 function: dev
 issue_prefix: DW-ISS
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Implementing ETL/reporting/data-model changes
   - Creating/updating data-warehousing issues (DW-ISS-*) for planned work

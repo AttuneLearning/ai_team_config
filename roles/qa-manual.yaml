@@ -4,6 +4,11 @@ team_id: qa
 function: manual
 issue_prefix: QA-ISS
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Manual verification of cross-team functional changes
   - Creating/updating QA manual issues (QA-ISS-*) for blockers

@@ -4,6 +4,11 @@ team_id: mobile
 function: dev
 issue_prefix: MOB-ISS
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Implementing mobile app features and integrations
   - Writing and maintaining automated tests for changed behavior

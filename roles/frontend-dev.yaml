@@ -15,6 +15,10 @@ function: dev
 issue_prefix: UI-ISS
 role_guidance: dev_communication/shared/guidance/FRONTEND_DEV_ROLE_GUIDANCE.md
 workflow: ai_team_config/teams/checklists/dev-issue-lifecycle.yaml
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
 
 # What this role owns
 owns:

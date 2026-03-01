@@ -4,6 +4,11 @@ team_id: cloud
 function: qa
 issue_prefix: CLOUD-QA
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Verifying cloud/infrastructure changes against acceptance criteria
   - Running QA verification for active cloud issues

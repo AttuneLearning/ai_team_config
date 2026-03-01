@@ -4,6 +4,11 @@ team_id: platform
 function: qa
 issue_prefix: PLAT-QA
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Verifying shared tooling/platform changes
   - Running QA verification for active platform issues

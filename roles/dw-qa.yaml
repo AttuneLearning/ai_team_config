@@ -4,6 +4,11 @@ team_id: data-warehousing
 function: qa
 issue_prefix: DW-QA
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Verifying data-warehousing changes for correctness and contract alignment
   - Running QA verification for active DW issues

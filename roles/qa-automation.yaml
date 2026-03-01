@@ -4,6 +4,11 @@ team_id: qa
 function: automation
 issue_prefix: QA-AUTO
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Implementing and maintaining test automation coverage
   - Creating/updating QA automation issues (QA-AUTO-*) for planned work

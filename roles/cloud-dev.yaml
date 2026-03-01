@@ -4,6 +4,11 @@ team_id: cloud
 function: dev
 issue_prefix: CLOUD-ISS
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Implementing infrastructure and deployment workflow changes
   - Creating/updating cloud issues (CLOUD-ISS-*) for planned work

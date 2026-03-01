@@ -53,6 +53,9 @@ while [[ $# -gt 0 ]]; do
     --force-refresh-links) FORCE_REFRESH_LINKS=1; shift 1 ;;
     --help|-h)
       echo "Usage: $0 [--team TEAM] [--role ROLE] [--platform claude|codex|both] [--devcomm create|skip|symlink:/abs/path] [--refresh-threshold N] [--force-refresh-links]"
+      echo ""
+      echo "  --force-refresh-links   Refresh symlinks AND regenerate platform docs (CLAUDE.md, AGENTS.md)"
+      echo "                          Existing files are backed up as .legacy-<timestamp>"
       exit 0
       ;;
     *) echo "Unknown option: $1"; exit 1 ;;
@@ -325,6 +328,141 @@ if [ "$PLATFORM" = "codex" ] || [ "$PLATFORM" = "both" ]; then
 fi
 echo ""
 
+# ---- Step 6b: Generate platform instruction files from templates ----
+echo -e "${GREEN}Step 6b: Generating platform instruction files from templates...${NC}"
+
+TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+
+render_template() {
+  local template_file="$1"
+  local output_file="$2"
+  local file_label="$3"
+
+  if [ ! -f "$template_file" ]; then
+    echo -e "  ${YELLOW}No template found at ${template_file}${NC}"
+    return 1
+  fi
+
+  if [ -f "$output_file" ] && [ "$FORCE_REFRESH_LINKS" != "1" ]; then
+    echo "  ${file_label} already exists at project root."
+    echo -e "  ${YELLOW}To regenerate, re-run with --force-refresh-links.${NC}"
+    return 0
+  fi
+
+  if [ -f "$output_file" ] && [ "$FORCE_REFRESH_LINKS" = "1" ]; then
+    local backup_path="${output_file}.legacy-${RUN_ID}"
+    mv "$output_file" "$backup_path"
+    echo -e "  ${YELLOW}Backed up existing ${file_label} to ${backup_path}${NC}"
+  fi
+
+  python3 - "$template_file" "$output_file" <<'RENDER_PY'
+import json, os, sys, re
+
+template_file = sys.argv[1]
+output_file = sys.argv[2]
+
+# Env vars passed from shell
+team_json = os.environ.get('_RENDER_TEAM_JSON', '{}')
+role_id = os.environ.get('_RENDER_ROLE_ID', '')
+team_id = os.environ.get('_RENDER_TEAM_ID', '')
+project_root = os.environ.get('_RENDER_PROJECT_ROOT', '.')
+script_dir = os.environ.get('_RENDER_SCRIPT_DIR', '.')
+
+team = json.loads(team_json)
+sub = team.get('sub_teams', {}).get(role_id, {})
+function = sub.get('function', 'dev')
+project_name = os.path.basename(os.path.abspath(project_root))
+
+# Read role yaml dev_gate if available
+role_file = os.path.join(script_dir, 'roles', f'{role_id}.yaml')
+gate_checks = []
+if os.path.isfile(role_file):
+    in_gate = False
+    with open(role_file) as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith('dev_gate:') or stripped.startswith('qa_gate:'):
+                in_gate = True
+                continue
+            if in_gate:
+                if stripped.startswith('- '):
+                    # Strip quotes and leading dash
+                    item = stripped[2:].strip().strip('"').strip("'")
+                    gate_checks.append(f'- [ ] {item}')
+                elif stripped and not stripped.startswith('#'):
+                    break
+
+if not gate_checks:
+    gate_checks = [
+        '- [ ] Typecheck passes (0 errors)',
+        '- [ ] All tests pass',
+        '- [ ] New functionality has corresponding tests',
+        '- [ ] Session file created',
+        '- [ ] Resolution notes appended to issue file',
+    ]
+
+# Build file paths based on team
+file_paths = f"""- **Procedures:** `ai_team_config/procedures/` — universal dev/QA lifecycle docs
+- **Dev communication:** `dev_communication/` — issues, messaging, architecture, coordination
+- **Memory vault:** `memory/` — patterns, entities, context, sessions
+- **Team inbox:** `dev_communication/{team_id}/inbox/`
+- **Role definition:** `ai_team_config/roles/{role_id}.yaml`
+- **Active role:** `active-role.json`"""
+
+# Read template
+with open(template_file) as f:
+    content = f.read()
+
+# Replace known placeholders
+replacements = {
+    '{{PROJECT_NAME}}': project_name,
+    '{{COMPLETION_GATE_CHECKS}}': '\n'.join(gate_checks),
+    '{{FILE_PATHS}}': file_paths,
+}
+for placeholder, value in replacements.items():
+    content = content.replace(placeholder, value)
+
+# Mark remaining placeholders as TODO
+def mark_remaining(match):
+    name = match.group(1)
+    return f'<!-- TODO: Fill in {name} for your project -->'
+
+content = re.sub(r'\{\{([A-Z_]+)\}\}', mark_remaining, content)
+
+with open(output_file, 'w') as f:
+    f.write(content)
+RENDER_PY
+
+  echo "  Generated: ${file_label} (rendered from template)"
+}
+
+# Export render context as env vars for the Python renderer
+export _RENDER_TEAM_JSON="$TEAM_JSON"
+export _RENDER_ROLE_ID="$ROLE_ID"
+export _RENDER_TEAM_ID="$TEAM_ID"
+export _RENDER_PROJECT_ROOT="$PROJECT_ROOT"
+export _RENDER_SCRIPT_DIR="$SCRIPT_DIR"
+
+if [ "$PLATFORM" = "claude" ] || [ "$PLATFORM" = "both" ]; then
+  render_template "${TEMPLATE_DIR}/CLAUDE.md.template" "${PROJECT_ROOT}/CLAUDE.md" "CLAUDE.md"
+fi
+
+if [ "$PLATFORM" = "codex" ] || [ "$PLATFORM" = "both" ]; then
+  render_template "${TEMPLATE_DIR}/AGENTS.md.template" "${PROJECT_ROOT}/AGENTS.md" "AGENTS.md"
+fi
+
+# Seed a MEMORY.md reference at project root if not present
+MEMORY_TEMPLATE="${TEMPLATE_DIR}/MEMORY.md.template"
+MEMORY_TARGET="${PROJECT_ROOT}/memory/MEMORY_TEMPLATE.md"
+if [ -f "$MEMORY_TEMPLATE" ] && [ ! -f "$MEMORY_TARGET" ]; then
+  render_template "$MEMORY_TEMPLATE" "$MEMORY_TARGET" "memory/MEMORY_TEMPLATE.md"
+fi
+
+# Clean up render env vars
+unset _RENDER_TEAM_JSON _RENDER_ROLE_ID _RENDER_TEAM_ID _RENDER_PROJECT_ROOT _RENDER_SCRIPT_DIR
+
+echo ""
+
 # ---- Step 7: Write active-role.json ----
 echo -e "${GREEN}Step 7: Writing active role configuration...${NC}"
 
@@ -409,6 +547,12 @@ if [ ! -f "$ROLE_FILE" ]; then
   report_issue "Missing role definition: ai_team_config/roles/${ROLE_ID}.yaml"
 fi
 
+for proc_file in polling-workflow.md dev-lifecycle.md qa-lifecycle.md comms-protocol.md; do
+  if [ ! -f "${SCRIPT_DIR}/procedures/${proc_file}" ]; then
+    report_issue "Missing procedure: ai_team_config/procedures/${proc_file}"
+  fi
+done
+
 if [ "$PLATFORM" = "claude" ] || [ "$PLATFORM" = "both" ]; then
   for skill_src_dir in "${PROJECT_ROOT}/ai_team_config/skills"/*/; do
     skill_name=$(basename "$skill_src_dir")
@@ -426,6 +570,27 @@ if [ "$PLATFORM" = "codex" ] || [ "$PLATFORM" = "both" ]; then
     fi
   done
 fi
+
+# Validate generated platform docs: unresolved placeholders and procedure path refs
+for doc_file in "${PROJECT_ROOT}/CLAUDE.md" "${PROJECT_ROOT}/AGENTS.md"; do
+  if [ -f "$doc_file" ]; then
+    doc_name="$(basename "$doc_file")"
+
+    # Check for unresolved {{...}} placeholders (excluding <!-- TODO --> markers)
+    unresolved=$(grep -cE '\{\{[A-Z_]+\}\}' "$doc_file" 2>/dev/null || true)
+    if [ "$unresolved" -gt 0 ]; then
+      report_issue "${doc_name} has ${unresolved} unresolved {{PLACEHOLDER}} token(s)"
+    fi
+
+    # Check that all ai_team_config/procedures/*.md references resolve to real files
+    while IFS= read -r proc_ref; do
+      proc_path="${PROJECT_ROOT}/${proc_ref}"
+      if [ ! -f "$proc_path" ]; then
+        report_issue "${doc_name} references non-existent procedure: ${proc_ref}"
+      fi
+    done < <(grep -oE 'ai_team_config/procedures/[a-z_-]+\.md' "$doc_file" 2>/dev/null | sort -u)
+  fi
+done
 
 echo "  Compliance issues detected: ${COMPLIANCE_ISSUES}"
 if [ "$COMPLIANCE_ISSUES" -ge "$REFRESH_THRESHOLD" ]; then
@@ -447,6 +612,8 @@ echo -e "  Memory:    ${GREEN}${MEMORY_DIR}${NC}"
 echo ""
 echo "  Working directories:"
 echo "    Skills (canonical):  ai_team_config/skills/"
+echo "    Procedures:          ai_team_config/procedures/"
+echo "    Templates:           ai_team_config/templates/"
 echo "    Memory vault:        memory/"
 echo "    ADRs & specs:        dev_communication/shared/architecture/"
 echo "    Team comms:          dev_communication/${TEAM_ID}/"

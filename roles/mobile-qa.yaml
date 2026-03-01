@@ -4,6 +4,11 @@ team_id: mobile
 function: qa
 issue_prefix: MOB-QA
 
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
 owns:
   - Verifying mobile changes for functional correctness and regressions
   - Running QA verification for active mobile issues

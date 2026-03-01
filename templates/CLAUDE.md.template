@@ -1,0 +1,109 @@
+# {{PROJECT_NAME}} - Claude Code Instructions
+
+## MANDATORY: Dev Lifecycle
+
+**STOP before any implementation.** Read this section completely.
+
+### Polling = Full Lifecycle (not passive file watching)
+
+When the user says **"start polling"**, **"poll"**, or **"begin polling"**:
+
+1. Read `active-role.json` to determine your role
+2. Read your lifecycle procedure: `ai_team_config/procedures/polling-workflow.md`
+3. Execute the FULL lifecycle loop — not just a file check
+
+**Dev roles** follow `ai_team_config/procedures/dev-lifecycle.md`:
+```
+OUTER LOOP: Poll → Assess → Plan → Contracts → [INNER LOOP per issue]
+INNER LOOP: Implement → Verify → Document → QA Handoff → Iterate
+```
+
+**QA roles** follow `ai_team_config/procedures/qa-lifecycle.md`:
+```
+LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterate
+```
+
+**Rules:**
+- Do NOT just report new files — process them through the full lifecycle
+- Do NOT run QA checks if you are a dev role (QA owns verification)
+- Do NOT implement before sending contracts to unblock cross-team work
+- Do NOT move issues to completed/ if you are a dev role (QA owns completion)
+- Do NOT idle while waiting for QA — pick the next unblocked issue
+
+### Role & Workflow Resolution
+
+| Role Function | Lifecycle Checklist | Procedure Doc |
+|--------------|-------------------|---------------|
+| `dev` (backend) | `ai_team_config/teams/checklists/dev-issue-lifecycle-backend.yaml` | `ai_team_config/procedures/dev-lifecycle.md` |
+| `dev` (frontend) | `ai_team_config/teams/checklists/dev-issue-lifecycle.yaml` | `ai_team_config/procedures/dev-lifecycle.md` |
+| `qa` (any) | `ai_team_config/teams/checklists/qa-gate.yaml` | `ai_team_config/procedures/qa-lifecycle.md` |
+
+---
+
+## Procedures Reference
+
+All development procedures live in `ai_team_config/procedures/`. Read these
+when starting work — they define the full workflow for your role.
+
+| Procedure | When to Read |
+|-----------|-------------|
+| `ai_team_config/procedures/polling-workflow.md` | When user says "poll" or "start polling" |
+| `ai_team_config/procedures/dev-lifecycle.md` | All dev work (issues, plans, crosswalks) |
+| `ai_team_config/procedures/qa-lifecycle.md` | All QA verification work |
+| `ai_team_config/procedures/comms-protocol.md` | When sending/receiving cross-team messages |
+
+---
+
+## Project Overview
+
+{{PROJECT_DESCRIPTION}}
+
+## Canonical Spec Documents
+
+{{SPEC_DOCUMENTS}}
+
+---
+
+## Skills Reference
+
+| Skill | Purpose |
+|-------|---------|
+| `/comms` | Inter-team communication (inbox, issues, messages) |
+| `/adr` | Architecture decisions, gaps, suggestions |
+| `/context` | Load relevant ADRs, patterns, and memory before work |
+| `/memory` | Manage the extended memory vault |
+| `/refine` | Review patterns, promote to ADRs |
+| `/reflect` | Capture learnings after implementation |
+
+### Agent Team Configuration
+
+When spawning agent teams, read role definitions and review criteria from:
+- `.claude/team-configs/agent-team-roles.json` — Team role definitions, spawn prompts, presets
+- `.claude/team-configs/code-reviewer-config.json` — Code review gate criteria
+
+### Completion Gate (BLOCKING)
+
+No issue can be marked complete by Dev until ALL pass:
+{{COMPLETION_GATE_CHECKS}}
+
+QA must then independently verify and approve before the issue moves to completed.
+
+---
+
+## Architecture
+
+{{ARCHITECTURE_OVERVIEW}}
+
+## Code Conventions
+
+{{CODE_CONVENTIONS}}
+
+---
+
+## Quick Reference
+
+{{QUICK_REFERENCE}}
+
+## File Paths
+
+{{FILE_PATHS}}
