@@ -18,16 +18,24 @@ so that the procedures live in one place and are never duplicated.
 ## How These Are Used
 
 1. **Install script** renders platform files (CLAUDE.md / AGENTS.md) from `templates/`
-2. The renderer fills in known values from install context:
-   - `{{PROJECT_NAME}}` — from project root directory name
-   - `{{COMPLETION_GATE_CHECKS}}` — from the role yaml's `dev_gate` or `qa_gate` list
-   - `{{FILE_PATHS}}` — from team_id and role_id paths
-3. Remaining `{{PLACEHOLDER}}` tokens (e.g., `{{PROJECT_DESCRIPTION}}`,
-   `{{ARCHITECTURE_OVERVIEW}}`) are replaced with `<!-- TODO -->` markers for the
-   user to fill in with project-specific content
-4. AI agents read the platform file first, then follow the referenced procedures
-5. Role-specific details (commands, paths, issue prefixes) come from `roles/*.yaml`
-6. Use `--force-refresh-links` to regenerate platform docs (existing files are backed up)
+2. The renderer reads two data sources:
+   - **`roles/{role_id}.yaml`** — completion gate checks (`dev_gate` / `qa_gate`)
+   - **`project.yaml`** (project root) — project-specific content for all 8 placeholders
+3. All placeholders are filled from these sources:
+   | Placeholder | Source |
+   |-------------|--------|
+   | `{{PROJECT_NAME}}` | `project.yaml` → `project_name` (falls back to directory name) |
+   | `{{PROJECT_DESCRIPTION}}` | `project.yaml` → `project_description` |
+   | `{{SPEC_DOCUMENTS}}` | `project.yaml` → `spec_documents` |
+   | `{{ARCHITECTURE_OVERVIEW}}` | `project.yaml` → `architecture_overview` |
+   | `{{CODE_CONVENTIONS}}` | `project.yaml` → `code_conventions` |
+   | `{{QUICK_REFERENCE}}` | `project.yaml` → `quick_reference` |
+   | `{{COMPLETION_GATE_CHECKS}}` | `roles/{role_id}.yaml` → `dev_gate` list |
+   | `{{FILE_PATHS}}` | Computed from `team_id` and `role_id` |
+4. If `project.yaml` is missing, the installer seeds one from `scaffolds/project.yaml`
+5. Any field left empty in `project.yaml` produces a `<!-- TODO -->` marker
+6. AI agents read the platform file first, then follow the referenced procedures
+7. Use `--force-refresh-links` to regenerate platform docs (existing files are backed up)
 
 ## Relationship to Checklists
 

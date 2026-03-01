@@ -1,0 +1,39 @@
+# =============================================================================
+# Project Configuration for Template Rendering
+# =============================================================================
+#
+# This file provides the project-specific values that the installer uses to
+# render CLAUDE.md and AGENTS.md from templates. Place a copy at your project
+# root as `project.yaml` and fill in each field.
+#
+# The installer reads this file during Step 6b (template rendering). Any field
+# left empty will produce a <!-- TODO --> marker in the generated output.
+#
+# =============================================================================
+
+# Project name (used in heading). Defaults to directory name if omitted.
+# project_name: My Project
+
+# One-paragraph project description.
+project_description: |
+  <!-- Fill in a brief project overview here -->
+
+# Spec/blueprint documents table (markdown).
+spec_documents: |
+  No canonical spec documents configured.
+
+# Architecture overview (markdown). Layers, patterns, key abstractions.
+architecture_overview: |
+  <!-- Fill in your project's architecture overview here -->
+
+# Code conventions (markdown). Path aliases, naming, file organization.
+code_conventions: |
+  <!-- Fill in your project's code conventions here -->
+
+# Quick reference commands (markdown code block).
+quick_reference: |
+  ```bash
+  npm run dev          # Start dev server
+  npm test             # Run all tests
+  npx tsc --noEmit     # Type check
+  ```

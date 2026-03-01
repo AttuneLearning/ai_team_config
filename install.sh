@@ -276,6 +276,19 @@ fi
 echo "  Done."
 echo ""
 
+# ---- Step 4b: Seed project.yaml if missing ----
+PROJECT_YAML="${PROJECT_ROOT}/project.yaml"
+PROJECT_YAML_SCAFFOLD="${SCRIPT_DIR}/scaffolds/project.yaml"
+if [ ! -f "$PROJECT_YAML" ]; then
+  if [ -f "$PROJECT_YAML_SCAFFOLD" ]; then
+    cp "$PROJECT_YAML_SCAFFOLD" "$PROJECT_YAML"
+    echo -e "  ${YELLOW}Seeded project.yaml from scaffold — edit it with your project details.${NC}"
+  fi
+else
+  echo "  project.yaml already exists."
+fi
+echo ""
+
 # ---- Step 5: Setup dev_communication/ ----
 echo -e "${GREEN}Step 5: Setting up dev_communication/...${NC}"
 
@@ -356,7 +369,7 @@ render_template() {
   fi
 
   python3 - "$template_file" "$output_file" <<'RENDER_PY'
-import json, os, sys, re
+import json, os, sys, re, textwrap
 
 template_file = sys.argv[1]
 output_file = sys.argv[2]
@@ -373,7 +386,54 @@ sub = team.get('sub_teams', {}).get(role_id, {})
 function = sub.get('function', 'dev')
 project_name = os.path.basename(os.path.abspath(project_root))
 
-# Read role yaml dev_gate if available
+# --- Read project.yaml for project-specific content ---
+project_yaml_path = os.path.join(project_root, 'project.yaml')
+project_vars = {}
+if os.path.isfile(project_yaml_path):
+    # Minimal YAML parser for simple key: | multiline blocks
+    current_key = None
+    current_lines = []
+    with open(project_yaml_path) as f:
+        for line in f:
+            # Skip comments
+            if line.strip().startswith('#') and current_key is None:
+                continue
+            # New top-level key
+            match = re.match(r'^([a-z_]+):\s*(.*)', line)
+            if match and not line[0].isspace():
+                # Save previous key
+                if current_key is not None:
+                    project_vars[current_key] = '\n'.join(current_lines).strip()
+                current_key = match.group(1)
+                value = match.group(2).strip()
+                if value == '|' or value == '>':
+                    current_lines = []
+                elif value:
+                    project_vars[current_key] = value
+                    current_key = None
+                    current_lines = []
+                else:
+                    current_lines = []
+            elif current_key is not None:
+                # Continuation of multiline block — strip exactly 2 leading spaces
+                if line.startswith('  '):
+                    current_lines.append(line[2:].rstrip())
+                elif line.strip() == '':
+                    current_lines.append('')
+                else:
+                    # End of block
+                    project_vars[current_key] = '\n'.join(current_lines).strip()
+                    current_key = None
+                    current_lines = []
+        # Flush last key
+        if current_key is not None:
+            project_vars[current_key] = '\n'.join(current_lines).strip()
+
+# Override project_name from yaml if provided
+if project_vars.get('project_name'):
+    project_name = project_vars['project_name']
+
+# --- Read role yaml dev_gate ---
 role_file = os.path.join(script_dir, 'roles', f'{role_id}.yaml')
 gate_checks = []
 if os.path.isfile(role_file):
@@ -386,7 +446,6 @@ if os.path.isfile(role_file):
                 continue
             if in_gate:
                 if stripped.startswith('- '):
-                    # Strip quotes and leading dash
                     item = stripped[2:].strip().strip('"').strip("'")
                     gate_checks.append(f'- [ ] {item}')
                 elif stripped and not stripped.startswith('#'):
@@ -401,7 +460,7 @@ if not gate_checks:
         '- [ ] Resolution notes appended to issue file',
     ]
 
-# Build file paths based on team
+# --- Build file paths ---
 file_paths = f"""- **Procedures:** `ai_team_config/procedures/` — universal dev/QA lifecycle docs
 - **Dev communication:** `dev_communication/` — issues, messaging, architecture, coordination
 - **Memory vault:** `memory/` — patterns, entities, context, sessions
@@ -409,20 +468,25 @@ file_paths = f"""- **Procedures:** `ai_team_config/procedures/` — universal de
 - **Role definition:** `ai_team_config/roles/{role_id}.yaml`
 - **Active role:** `active-role.json`"""
 
-# Read template
+# --- Read template ---
 with open(template_file) as f:
     content = f.read()
 
-# Replace known placeholders
+# --- Replace all placeholders ---
 replacements = {
     '{{PROJECT_NAME}}': project_name,
     '{{COMPLETION_GATE_CHECKS}}': '\n'.join(gate_checks),
     '{{FILE_PATHS}}': file_paths,
+    '{{PROJECT_DESCRIPTION}}': project_vars.get('project_description', ''),
+    '{{SPEC_DOCUMENTS}}': project_vars.get('spec_documents', ''),
+    '{{ARCHITECTURE_OVERVIEW}}': project_vars.get('architecture_overview', ''),
+    '{{CODE_CONVENTIONS}}': project_vars.get('code_conventions', ''),
+    '{{QUICK_REFERENCE}}': project_vars.get('quick_reference', ''),
 }
 for placeholder, value in replacements.items():
     content = content.replace(placeholder, value)
 
-# Mark remaining placeholders as TODO
+# Any remaining unknown placeholders become TODO markers
 def mark_remaining(match):
     name = match.group(1)
     return f'<!-- TODO: Fill in {name} for your project -->'
@@ -576,10 +640,16 @@ for doc_file in "${PROJECT_ROOT}/CLAUDE.md" "${PROJECT_ROOT}/AGENTS.md"; do
   if [ -f "$doc_file" ]; then
     doc_name="$(basename "$doc_file")"
 
-    # Check for unresolved {{...}} placeholders (excluding <!-- TODO --> markers)
+    # Check for unresolved {{...}} placeholders
     unresolved=$(grep -cE '\{\{[A-Z_]+\}\}' "$doc_file" 2>/dev/null || true)
     if [ "$unresolved" -gt 0 ]; then
       report_issue "${doc_name} has ${unresolved} unresolved {{PLACEHOLDER}} token(s)"
+    fi
+
+    # Check for <!-- TODO --> markers (project.yaml not filled in)
+    todo_count=$(grep -cE '<!-- TODO:' "$doc_file" 2>/dev/null || true)
+    if [ "$todo_count" -gt 0 ]; then
+      report_issue "${doc_name} has ${todo_count} <!-- TODO --> section(s) — fill in project.yaml and re-run with --force-refresh-links"
     fi
 
     # Check that all ai_team_config/procedures/*.md references resolve to real files
