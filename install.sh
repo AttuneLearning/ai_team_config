@@ -17,6 +17,7 @@
 #   ./ai_team_config/install.sh --team frontend --role frontend-dev --platform both --devcomm create
 #   ./ai_team_config/install.sh --team frontend --role frontend-dev --platform both --refresh-threshold 5
 #   ./ai_team_config/install.sh --team frontend --role frontend-dev --platform both --force-refresh-links
+#   ./ai_team_config/install.sh --non-interactive   # Skip project.yaml prompts (just copy scaffold)
 #
 # =============================================================================
 
@@ -41,6 +42,7 @@ DEVCOMM_MODE="create"
 DEVCOMM_LINK_TARGET=""
 REFRESH_THRESHOLD=5
 FORCE_REFRESH_LINKS=0
+NON_INTERACTIVE=0
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 
 while [[ $# -gt 0 ]]; do
@@ -51,11 +53,13 @@ while [[ $# -gt 0 ]]; do
     --devcomm) DEVCOMM_MODE="$2"; shift 2 ;;
     --refresh-threshold) REFRESH_THRESHOLD="$2"; shift 2 ;;
     --force-refresh-links) FORCE_REFRESH_LINKS=1; shift 1 ;;
+    --non-interactive) NON_INTERACTIVE=1; shift 1 ;;
     --help|-h)
-      echo "Usage: $0 [--team TEAM] [--role ROLE] [--platform claude|codex|both] [--devcomm create|skip|symlink:/abs/path] [--refresh-threshold N] [--force-refresh-links]"
+      echo "Usage: $0 [--team TEAM] [--role ROLE] [--platform claude|codex|both] [--devcomm create|skip|symlink:/abs/path] [--refresh-threshold N] [--force-refresh-links] [--non-interactive]"
       echo ""
       echo "  --force-refresh-links   Refresh symlinks AND regenerate platform docs (CLAUDE.md, AGENTS.md)"
       echo "                          Existing files are backed up as .legacy-<timestamp>"
+      echo "  --non-interactive       Skip interactive project.yaml prompts; just copy scaffold if missing"
       exit 0
       ;;
     *) echo "Unknown option: $1"; exit 1 ;;
@@ -125,6 +129,161 @@ PY
   fi
 
   return 0
+}
+
+# ---------------------------------------------------------------------------
+# Helper: check which project.yaml fields still have scaffold placeholders
+# ---------------------------------------------------------------------------
+check_project_yaml_status() {
+  local yaml_file="$1"
+  python3 - "$yaml_file" <<'CHECK_PY'
+import re, sys
+
+yaml_file = sys.argv[1]
+SENTINEL_PATTERNS = [
+    r'<!--\s*Fill in',
+    r'No canonical spec documents configured\.',
+]
+
+# Minimal YAML parser (same logic as Step 6b renderer)
+project_vars = {}
+current_key = None
+current_lines = []
+with open(yaml_file) as f:
+    for line in f:
+        if line.strip().startswith('#') and current_key is None:
+            continue
+        match = re.match(r'^([a-z_]+):\s*(.*)', line)
+        if match and not line[0].isspace():
+            if current_key is not None:
+                project_vars[current_key] = '\n'.join(current_lines).strip()
+            current_key = match.group(1)
+            value = match.group(2).strip()
+            if value in ('|', '>'):
+                current_lines = []
+            elif value:
+                project_vars[current_key] = value
+                current_key = None
+                current_lines = []
+            else:
+                current_lines = []
+        elif current_key is not None:
+            if line.startswith('  '):
+                current_lines.append(line[2:].rstrip())
+            elif line.strip() == '':
+                current_lines.append('')
+            else:
+                project_vars[current_key] = '\n'.join(current_lines).strip()
+                current_key = None
+                current_lines = []
+    if current_key is not None:
+        project_vars[current_key] = '\n'.join(current_lines).strip()
+
+required = ['project_description', 'spec_documents', 'architecture_overview',
+            'code_conventions', 'quick_reference']
+unfilled = []
+for field in required:
+    val = project_vars.get(field, '').strip()
+    if not val:
+        unfilled.append(field)
+        continue
+    for pat in SENTINEL_PATTERNS:
+        if re.search(pat, val):
+            unfilled.append(field)
+            break
+
+if unfilled:
+    print('NEEDS_SETUP:' + ','.join(unfilled))
+else:
+    print('COMPLETE')
+CHECK_PY
+}
+
+# ---------------------------------------------------------------------------
+# Helper: detect whether interactive /dev/tty prompts are available
+# ---------------------------------------------------------------------------
+can_use_tty() {
+  if [ ! -c /dev/tty ]; then
+    return 1
+  fi
+  if ! { exec 9<>/dev/tty; } 2>/dev/null; then
+    return 1
+  fi
+  exec 9>&-
+  exec 9<&-
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Helper: collect multiline markdown input for a field
+# ---------------------------------------------------------------------------
+collect_multiline() {
+  local field_name="$1"
+  local instructions="$2"
+  local tmpfile
+  tmpfile="$(mktemp /tmp/project-yaml-XXXXXX.md)"
+
+  local editor="${VISUAL:-${EDITOR:-}}"
+  if [ -n "$editor" ]; then
+    echo -e "  ${YELLOW}${field_name}:${NC} ${instructions}" >&2
+    : > "$tmpfile"
+
+    "$editor" "$tmpfile" </dev/tty >/dev/tty 2>/dev/tty
+    sed -e 's/[[:space:]]*$//' "$tmpfile"
+  else
+    echo -e "  ${YELLOW}No \$EDITOR set — entering line-by-line mode.${NC}" >&2
+    echo -e "  ${YELLOW}Type your content. Enter __END__ on its own line to finish.${NC}" >&2
+    local line
+    local content=""
+    while IFS= read -r line </dev/tty; do
+      [ "$line" = "__END__" ] && break
+      if [ -z "$content" ]; then
+        content="$line"
+      else
+        content="${content}
+${line}"
+      fi
+    done
+    echo "$content"
+  fi
+
+  rm -f "$tmpfile"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: write project.yaml from env vars
+# ---------------------------------------------------------------------------
+write_project_yaml() {
+  python3 - <<'WRITE_PY'
+import os
+
+out_path  = os.environ['_PY_OUT']
+name      = os.environ.get('_PY_NAME', '')
+desc      = os.environ.get('_PY_DESC', '')
+specs     = os.environ.get('_PY_SPECS', '')
+arch      = os.environ.get('_PY_ARCH', '')
+conv      = os.environ.get('_PY_CONV', '')
+quick     = os.environ.get('_PY_QUICK', '')
+
+def multiline_block(value):
+    """Format a value as a YAML | multiline block with 2-space indent."""
+    lines = value.split('\n')
+    return '|\n' + '\n'.join('  ' + l for l in lines) + '\n'
+
+with open(out_path, 'w') as f:
+    f.write("# =============================================================================\n")
+    f.write("# Project Configuration for Template Rendering\n")
+    f.write("# =============================================================================\n\n")
+
+    if name:
+        f.write(f"project_name: {name}\n\n")
+
+    f.write("project_description: " + multiline_block(desc))
+    f.write("\nspec_documents: " + multiline_block(specs))
+    f.write("\narchitecture_overview: " + multiline_block(arch))
+    f.write("\ncode_conventions: " + multiline_block(conv))
+    f.write("\nquick_reference: " + multiline_block(quick))
+WRITE_PY
 }
 
 echo -e "${BLUE}==========================================${NC}"
@@ -276,16 +435,203 @@ fi
 echo "  Done."
 echo ""
 
-# ---- Step 4b: Seed project.yaml if missing ----
+# ---- Step 4b: Interactive project.yaml setup ----
 PROJECT_YAML="${PROJECT_ROOT}/project.yaml"
 PROJECT_YAML_SCAFFOLD="${SCRIPT_DIR}/scaffolds/project.yaml"
-if [ ! -f "$PROJECT_YAML" ]; then
-  if [ -f "$PROJECT_YAML_SCAFFOLD" ]; then
-    cp "$PROJECT_YAML_SCAFFOLD" "$PROJECT_YAML"
-    echo -e "  ${YELLOW}Seeded project.yaml from scaffold — edit it with your project details.${NC}"
+
+if [ "$NON_INTERACTIVE" = "0" ] && ! can_use_tty; then
+  echo -e "  ${YELLOW}No interactive TTY detected; switching to --non-interactive mode for project.yaml setup.${NC}"
+  NON_INTERACTIVE=1
+fi
+
+if [ "$NON_INTERACTIVE" = "1" ]; then
+  # Non-interactive: just copy scaffold if missing (old behavior)
+  if [ ! -f "$PROJECT_YAML" ]; then
+    if [ -f "$PROJECT_YAML_SCAFFOLD" ]; then
+      cp "$PROJECT_YAML_SCAFFOLD" "$PROJECT_YAML"
+      echo -e "  ${YELLOW}Seeded project.yaml from scaffold (non-interactive) — edit it manually.${NC}"
+    fi
+  else
+    echo "  project.yaml already exists."
   fi
 else
-  echo "  project.yaml already exists."
+  # Interactive mode
+  if [ -f "$PROJECT_YAML" ]; then
+    YAML_STATUS="$(check_project_yaml_status "$PROJECT_YAML")"
+  else
+    # Seed scaffold first so the checker and loader have something to parse
+    if [ -f "$PROJECT_YAML_SCAFFOLD" ]; then
+      cp "$PROJECT_YAML_SCAFFOLD" "$PROJECT_YAML"
+    fi
+    YAML_STATUS="NEEDS_SETUP:project_description,spec_documents,architecture_overview,code_conventions,quick_reference"
+  fi
+
+  if [ "$YAML_STATUS" = "COMPLETE" ]; then
+    echo "  project.yaml already configured — skipping interactive setup."
+  else
+    UNFILLED="${YAML_STATUS#NEEDS_SETUP:}"
+    echo -e "${GREEN}Step 4b: Project configuration${NC}"
+    echo ""
+    echo "  The following fields need to be filled in: ${UNFILLED}"
+    echo ""
+
+    # Load existing values from project.yaml (base64-encoded for shell safety)
+    # Initialize to empty so set -u doesn't crash if python fails
+    _EXISTING_PROJECT_NAME=""
+    _EXISTING_PROJECT_DESCRIPTION=""
+    _EXISTING_SPEC_DOCUMENTS=""
+    _EXISTING_ARCHITECTURE_OVERVIEW=""
+    _EXISTING_CODE_CONVENTIONS=""
+    _EXISTING_QUICK_REFERENCE=""
+    eval "$(python3 - "$PROJECT_YAML" <<'LOAD_PY'
+import re, sys, base64
+
+yaml_file = sys.argv[1]
+project_vars = {}
+current_key = None
+current_lines = []
+with open(yaml_file) as f:
+    for line in f:
+        if line.strip().startswith('#') and current_key is None:
+            continue
+        match = re.match(r'^([a-z_]+):\s*(.*)', line)
+        if match and not line[0].isspace():
+            if current_key is not None:
+                project_vars[current_key] = '\n'.join(current_lines).strip()
+            current_key = match.group(1)
+            value = match.group(2).strip()
+            if value in ('|', '>'):
+                current_lines = []
+            elif value:
+                project_vars[current_key] = value
+                current_key = None
+                current_lines = []
+            else:
+                current_lines = []
+        elif current_key is not None:
+            if line.startswith('  '):
+                current_lines.append(line[2:].rstrip())
+            elif line.strip() == '':
+                current_lines.append('')
+            else:
+                project_vars[current_key] = '\n'.join(current_lines).strip()
+                current_key = None
+                current_lines = []
+    if current_key is not None:
+        project_vars[current_key] = '\n'.join(current_lines).strip()
+
+# Emit shell assignments with base64-encoded values
+for key in ['project_name', 'project_description', 'spec_documents',
+            'architecture_overview', 'code_conventions', 'quick_reference']:
+    val = project_vars.get(key, '')
+    encoded = base64.b64encode(val.encode()).decode()
+    print(f'_EXISTING_{key.upper()}="{encoded}"')
+LOAD_PY
+)"
+
+    # Decode helper
+    _decode_b64() { echo "$1" | base64 -d 2>/dev/null || echo ""; }
+
+    DEFAULT_PROJECT_NAME="$(basename "$PROJECT_ROOT")"
+    EXISTING_NAME="$(_decode_b64 "$_EXISTING_PROJECT_NAME")"
+
+    # --- project_name (always prompt — simple single-line) ---
+    if [ -n "$EXISTING_NAME" ]; then
+      DEFAULT_PROJECT_NAME="$EXISTING_NAME"
+    fi
+    read -rp "  Project name [${DEFAULT_PROJECT_NAME}]: " INPUT_NAME </dev/tty
+    FINAL_NAME="${INPUT_NAME:-$DEFAULT_PROJECT_NAME}"
+    echo ""
+
+    # --- Prompt only for unfilled fields ---
+    needs_field() { echo ",$UNFILLED," | grep -q ",$1,"; }
+
+    # project_description
+    if needs_field "project_description"; then
+      echo -e "  ${GREEN}Project description${NC} (one paragraph about your project):"
+      FINAL_DESC="$(collect_multiline "Project Description" "Write a brief overview of your project.")"
+      if [ -z "$FINAL_DESC" ]; then
+        FINAL_DESC="$(_decode_b64 "$_EXISTING_PROJECT_DESCRIPTION")"
+      fi
+    else
+      FINAL_DESC="$(_decode_b64 "$_EXISTING_PROJECT_DESCRIPTION")"
+    fi
+    echo ""
+
+    # spec_documents
+    if needs_field "spec_documents"; then
+      echo -e "  ${GREEN}Spec documents${NC} (markdown table or list of blueprint docs):"
+      FINAL_SPECS="$(collect_multiline "Spec Documents" "List your canonical spec/blueprint documents as markdown.")"
+      if [ -z "$FINAL_SPECS" ]; then
+        FINAL_SPECS="$(_decode_b64 "$_EXISTING_SPEC_DOCUMENTS")"
+      fi
+    else
+      FINAL_SPECS="$(_decode_b64 "$_EXISTING_SPEC_DOCUMENTS")"
+    fi
+    echo ""
+
+    # architecture_overview
+    if needs_field "architecture_overview"; then
+      echo -e "  ${GREEN}Architecture overview${NC} (layers, patterns, key abstractions):"
+      FINAL_ARCH="$(collect_multiline "Architecture Overview" "Describe your project architecture: layers, patterns, key abstractions.")"
+      if [ -z "$FINAL_ARCH" ]; then
+        FINAL_ARCH="$(_decode_b64 "$_EXISTING_ARCHITECTURE_OVERVIEW")"
+      fi
+    else
+      FINAL_ARCH="$(_decode_b64 "$_EXISTING_ARCHITECTURE_OVERVIEW")"
+    fi
+    echo ""
+
+    # code_conventions
+    if needs_field "code_conventions"; then
+      echo -e "  ${GREEN}Code conventions${NC} (path aliases, naming, file organization):"
+      FINAL_CONV="$(collect_multiline "Code Conventions" "Describe path aliases, naming conventions, file organization.")"
+      if [ -z "$FINAL_CONV" ]; then
+        FINAL_CONV="$(_decode_b64 "$_EXISTING_CODE_CONVENTIONS")"
+      fi
+    else
+      FINAL_CONV="$(_decode_b64 "$_EXISTING_CODE_CONVENTIONS")"
+    fi
+    echo ""
+
+    # quick_reference
+    if needs_field "quick_reference"; then
+      DEFAULT_QUICK='```bash
+npm run dev          # Start dev server
+npm test             # Run all tests
+npx tsc --noEmit     # Type check
+```'
+      echo -e "  ${GREEN}Quick reference commands:${NC}"
+      echo "  Default:"
+      echo "$DEFAULT_QUICK" | sed 's/^/    /'
+      echo ""
+      read -rp "  Keep defaults? [Y/n]: " KEEP_QUICK </dev/tty
+      if [[ "$KEEP_QUICK" =~ ^[Nn] ]]; then
+        FINAL_QUICK="$(collect_multiline "Quick Reference" "Enter your quick-reference commands as a markdown code block.")"
+        if [ -z "$FINAL_QUICK" ]; then
+          FINAL_QUICK="$DEFAULT_QUICK"
+        fi
+      else
+        FINAL_QUICK="$DEFAULT_QUICK"
+      fi
+    else
+      FINAL_QUICK="$(_decode_b64 "$_EXISTING_QUICK_REFERENCE")"
+    fi
+    echo ""
+
+    # Write project.yaml
+    export _PY_OUT="$PROJECT_YAML"
+    export _PY_NAME="$FINAL_NAME"
+    export _PY_DESC="$FINAL_DESC"
+    export _PY_SPECS="$FINAL_SPECS"
+    export _PY_ARCH="$FINAL_ARCH"
+    export _PY_CONV="$FINAL_CONV"
+    export _PY_QUICK="$FINAL_QUICK"
+    write_project_yaml
+    unset _PY_OUT _PY_NAME _PY_DESC _PY_SPECS _PY_ARCH _PY_CONV _PY_QUICK
+
+    echo -e "  ${GREEN}Wrote: project.yaml${NC}"
+  fi
 fi
 echo ""
 
@@ -369,7 +715,7 @@ render_template() {
   fi
 
   python3 - "$template_file" "$output_file" <<'RENDER_PY'
-import json, os, sys, re, textwrap
+import json, os, sys, re
 
 template_file = sys.argv[1]
 output_file = sys.argv[2]
