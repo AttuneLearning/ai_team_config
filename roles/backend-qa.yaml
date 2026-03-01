@@ -1,6 +1,12 @@
 # =============================================================================
 # Sub-Team Role Definition: Backend-QA
 # =============================================================================
+#
+# Load this file to configure an agent controller window as a Backend-QA.
+# The team config (team.json) is written by the installer. This role definition
+# is loaded at session start when the user selects their sub-role.
+#
+# =============================================================================
 
 role_id: backend-qa
 role_name: Backend-QA
@@ -44,6 +50,12 @@ evidence_required:
   - Clear unblock criteria
   - Coverage assessment and missing-test recommendations
   - Manual review notes: efficiency, security, ADR conformance
+
+severity_order:
+  - Critical (release/security/data loss)
+  - High (endpoint/contract broken)
+  - Medium (workflow gap, non-blocking contract drift)
+  - Low (minor docs/naming mismatch)
 
 comms:
   from_header: Backend-QA
