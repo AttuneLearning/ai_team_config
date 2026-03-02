@@ -2,19 +2,13 @@
 # Dev Lifecycle Checklist (Backend-Dev)
 # =============================================================================
 #
-# The full iterative loop for ALL backend development work — single issues,
-# multi-phase implementation plans, crosswalk requests, and QA iterations.
-#
-# Usage: "Start polling" / "Poll" / "Begin polling"
-#   → Confirm sub-role at session start, then execute this workflow continuously.
-#
-# Two nested loops:
+# Two nested loops for ALL backend development work:
 #   OUTER: Poll → Assess → Plan → Contracts → [inner loop per issue]
-#   INNER: Implement → Verify → Document → QA → Iterate
+#   INNER: Implement → Verify → Document → QA Handoff → Iterate
 #
 # =============================================================================
 
-version: "2.0.0"
+version: "3.0.0"
 name: Dev Lifecycle (Backend)
 applies_to:
   - backend-dev
@@ -22,8 +16,6 @@ applies_to:
 # ---------------------------------------------------------------------------
 # Phase 0: Comms Poll & Triage
 # ---------------------------------------------------------------------------
-# Run at the start of each iteration. Detects new work, QA rejections,
-# frontend contract requests, plans, and blockers.
 
 phase_0_comms:
   name: Poll comms and triage
@@ -32,13 +24,15 @@ phase_0_comms:
     - Read backend/inbox/ for new messages
     - Read backend/issues/queue/ for unstarted issues
     - Read backend/issues/active/ for in-progress or QA-blocked issues
+    - Check active issues for "Awaiting Response" entries; scan inbox for matching replies
     - Classify each inbox message:
         - contract_request → Phase 1
-        - implementation_plan → Phase 0b (assess & decompose)
+        - implementation_plan → Phase 0b
         - qa_finding → match to active issue, prioritize re-fix
         - frontend_bug_report → Phase 0b (assess, create issue)
+        - reply_to_outbound → match to original thread, unblock or create issue
         - status_update → acknowledge, no action unless blocking
-    - Match QA findings and frontend requests to active issues
+    - Match findings and cross-team requests to active issues
     - Unblock issues where dependencies are resolved
   sources:
     - dev_communication/backend/inbox
@@ -48,55 +42,38 @@ phase_0_comms:
 # ---------------------------------------------------------------------------
 # Phase 0b: Assess & Decompose
 # ---------------------------------------------------------------------------
-# For work that is NOT a single issue — plans, crosswalk requests,
-# large feature requests, multi-endpoint contract proposals.
-# Break into actionable issues and plan documents before any implementation.
 
 phase_0b_assess:
   name: Assess and decompose into issues
   trigger: new_plan_or_large_request
   steps:
     - Read the full request/plan document
-    - Identify distinct work items (new endpoints, enhancements, bug fixes, confirmations)
-    - Group into implementation phases ordered by dependency and priority
-    - Create a plan document in dev_communication/shared/plans/ if one doesn't exist
+    - Identify distinct work items (endpoints, enhancements, bug fixes, confirmations)
+    - Group into phases ordered by dependency
+    - Create a plan document in dev_communication/shared/plans/ if needed
     - Create individual issues in backend/issues/queue/ for each work item
-    - For each issue, note dependencies (which issues block which)
-    - Proceed to Phase 1 with the full set of issues
-  rules:
-    - Every actionable item becomes a tracked issue
-    - Phase ordering respects dependencies (contracts before implementation)
-    - Plan documents live in dev_communication/shared/plans/
-    - Issues reference the plan document for traceability
+    - Note dependencies between issues
+    - Proceed to Phase 1
 
 # ---------------------------------------------------------------------------
 # Phase 1: Contracts & Cross-Team Setup
 # ---------------------------------------------------------------------------
-# Backend DEFINES contracts. When frontend requests new contracts or the
-# plan includes new/changed endpoints, update ALL contract DTOs first,
-# then send to frontend so they are unblocked BEFORE implementation begins.
-#
-# For multi-issue plans: define contracts for ALL issues in the plan at once.
-# Do not wait until implementing each issue to define its contract.
 
 phase_1_contracts:
   name: Define or update contracts
   steps:
     - Read frontend contract requests from backend/inbox/
     - Read contracts/types/ for existing DTOs
-    - For EACH new/changed endpoint across ALL planned issues:
-        - Define the contract DTO in contracts/types/
-        - Include request shape, response shape, query params, error cases
+    - Define contract DTOs for each new/changed endpoint
     - Send ONE consolidated contract confirmation to frontend/inbox/
-    - Include: endpoint paths, DTO details, implementation timeline/ordering
     - If no contract changes needed, proceed to Phase 2
   rule: >
-    Backend owns contract definitions. Frontend consumes them.
-    Update the shared contract DTO first, then implement the endpoint.
-    Never ship an endpoint whose response shape differs from the contract DTO.
-    For plans with multiple endpoints, send ALL contracts upfront.
-    Frontend should not be waiting on contracts while backend implements.
-  reference: ADR-DEV-004-CONSUME-CONTRACTS-DIRECTLY-NO-NORMALIZERS
+    Backend owns contracts, frontend consumes them. Send ALL contracts
+    upfront for multi-endpoint plans. (ADR-DEV-004)
+  outbound_tracking: >
+    When sending a contract request or clarification, note it in the
+    related issue file under "Awaiting Response" with message filename
+    and date. Remove when the reply is processed.
 
 # ---------------------------------------------------------------------------
 # Phase 2: Context Loading
@@ -108,9 +85,7 @@ phase_2_context:
     - Load relevant ADRs from dev_communication/shared/architecture/decisions/
     - Load memory patterns from memory/patterns/
     - Read the issue file for acceptance criteria and prior QA findings
-    - Identify which ADRs apply by change type (see ADR-DEV-002)
-    - Review Mongoose schema and existing service layer for the affected domain
-  skill: /context
+    - Review existing code in the affected domain
 
 # ---------------------------------------------------------------------------
 # Phase 3: Implementation
@@ -119,25 +94,20 @@ phase_2_context:
 phase_3_implement:
   name: Implement
   steps:
-    - Move issue from queue/ to active/ (if not already active)
+    - Move issue from queue/ to active/ (if not already)
     - Plan if complex (schema migration, multi-service change, new middleware)
-    - Update Mongoose models/schemas as needed
-    - Implement service layer logic
-    - Implement route handlers
+    - Implement following project architecture
     - Ensure response shapes match contract DTOs exactly
-    - Write tests for new functionality as part of implementation
-    - If QA-rejected, address specific QA findings before re-verifying
+    - Write tests for new functionality
+    - If QA re-fix, address specific QA findings first
   rules:
-    - New functionality must have corresponding tests
-    - Response shapes must match shared contract DTOs
-    - Use markModified() for Mongoose Mixed-type fields
-    - Validate at system boundaries (request input, external APIs)
+    - New functionality MUST have corresponding tests
+    - Response shapes MUST match shared contract DTOs
     - Do not add backward-compatibility shims or deprecated fields
 
 # ---------------------------------------------------------------------------
 # Phase 4: Dev Verification Gate (BLOCKING)
 # ---------------------------------------------------------------------------
-# All must pass. Do not hand off to QA with failures.
 
 phase_4_verify:
   name: Dev verification gate
@@ -161,78 +131,35 @@ phase_4_verify:
 # ---------------------------------------------------------------------------
 
 phase_5_document:
-  name: Document, commit, and hand off to QA
-  substeps:
-    5a_documentation:
-      name: Documentation
-      steps:
-        - Create session file at memory/sessions/{date}-{issue-slug}.md
-        - Append resolution notes to the issue file
-        - If contract was added/changed, confirm contracts/types/ is updated
-        - If new pattern discovered, update memory/patterns/ or /adr suggest
-        - If frontend impact, send message to frontend/inbox/ via /comms send
-    5b_commit:
-      name: Commit (MANDATORY — do not wait for user prompt)
-      steps:
-        - Stage all changed files relevant to the issue (git add with specific paths)
-        - Create a commit with a descriptive message referencing the issue ID
-        - Record the commit hash(es)
-    5c_issue_state:
-      name: Issue state update (MANDATORY — do not wait for user prompt)
-      steps:
-        - Write commit hash(es) into the issue file Completion section
-        - Set "QA: PENDING" on the issue file (confirms dev is done, QA can pick up)
-        - Update the issue "Updated:" date to today
-  execution_rule: >
-    Sub-phases 5a → 5b → 5c are sequential and automatic.
-    Phase 5 is NOT complete until all three sub-phases have executed.
-    Do NOT stop after documentation and ask the user — commit and update
-    state immediately.
+  name: Document and hand off to QA
+  steps:
+    - Create session file at memory/sessions/{date}-{issue-slug}.md
+    - Append resolution notes to the issue file
+    - If contract was added/changed, confirm contracts/types/ is updated
+    - If frontend impact, send message to frontend/inbox/
+    - Commit and push
   handoff_rule: >
     Issue stays in active/ with Status: ACTIVE.
     Do NOT move to completed/. Do NOT set Status: COMPLETE.
-    QA owns Phase 6 (verification) and Phase 7 (completion).
+    QA owns verification and completion.
 
 # ---------------------------------------------------------------------------
-# Phase 6: Wait for QA
+# Phase 6: Iterate
 # ---------------------------------------------------------------------------
-# Dev does not act here. QA runs their qa-gate.yaml checklist.
-# This phase ends when QA writes back to backend/inbox/ or updates
-# the issue file with findings.
-# While waiting, pick the next issue from queue/ and start Phase 2.
 
-phase_6_wait_for_qa:
-  name: Wait for QA verdict
-  action: poll
-  poll_sources:
-    - dev_communication/backend/inbox
-    - dev_communication/backend/issues/active
-  look_for:
-    - QA verdict appended to issue file (Pass, Blocked, Need More Info)
-    - QA message in backend/inbox/ referencing the issue
+phase_6_iterate:
+  name: Iterate
+  while_waiting: >
+    Pick the next unblocked issue and begin Phase 2.
+    Multiple issues can be in-flight at different phases.
   outcomes:
     pass: QA moves issue to completed/ — done
-    blocked: return to phase_0 with QA findings, iterate
-    need_more_info: return to phase_0, respond to QA questions
-  while_waiting: >
-    Do not idle. Pick the next unblocked issue from queue/ or active/
-    and begin Phase 2 for that issue. Multiple issues can be in-flight
-    at different phases simultaneously.
-
-# ---------------------------------------------------------------------------
-# Phase 7: Iterate Until Acceptance
-# ---------------------------------------------------------------------------
-# On QA rejection, loop back to Phase 0. The inbox will contain QA findings.
-# Address findings, re-verify, re-document, and wait for QA again.
-# On plan completion, loop back to Phase 0 to check for new work.
-
-phase_7_iterate:
-  name: Iterate
+    blocked: return to Phase 0 with QA findings, iterate
+    need_more_info: return to Phase 0, respond to QA questions
   loop: phase_0_comms
   exit_condition: >
-    All issues in backend/issues/active/ have been moved to completed/
-    by QA, AND no more issues remain in queue/ or active/,
-    AND no unprocessed messages remain in backend/inbox/.
+    All issues moved to completed/ by QA, no issues in queue/,
+    no unprocessed inbox messages, no open outbound threads.
 
 # ---------------------------------------------------------------------------
 # Automation
@@ -243,6 +170,5 @@ automation:
     typecheck: npx tsc --noEmit
     unit: npm run test:unit
     integration: npm run test:integration
-    uat: npm run test:uat
   issue_prefix: API-ISS
   session_path: memory/sessions/{date}-{issue-slug}.md

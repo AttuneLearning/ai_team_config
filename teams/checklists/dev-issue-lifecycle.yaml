@@ -1,24 +1,21 @@
 # =============================================================================
-# Dev Issue Lifecycle Checklist (Frontend-Dev)
+# Dev Lifecycle Checklist (Frontend-Dev)
 # =============================================================================
 #
-# The full iterative loop from issue pickup to QA acceptance.
-# Covers the dev side of the lifecycle — QA gate criteria are in qa-gate.yaml.
-#
-# Usage: "Poll comms and follow dev-issue-lifecycle until QA acceptance"
+# Two nested loops for ALL frontend development work:
+#   OUTER: Poll → Assess → Plan → Contracts → [inner loop per issue]
+#   INNER: Implement → Verify → Document → QA Handoff → Iterate
 #
 # =============================================================================
 
-version: "1.0.0"
-name: Dev Issue Lifecycle
+version: "2.0.0"
+name: Dev Lifecycle (Frontend)
 applies_to:
   - frontend-dev
 
 # ---------------------------------------------------------------------------
 # Phase 0: Comms Poll & Triage
 # ---------------------------------------------------------------------------
-# Run at the start of each iteration. Detects new work, QA rejections,
-# backend responses, and blockers.
 
 phase_0_comms:
   name: Poll comms and triage
@@ -27,33 +24,57 @@ phase_0_comms:
     - Read frontend/inbox/ for new messages
     - Read frontend/issues/queue/ for unstarted issues
     - Read frontend/issues/active/ for in-progress or QA-blocked issues
-    - Classify each inbox message (contract_update, qa_finding, backend_response, status_update)
-    - Match QA findings and backend responses to active issues
+    - Check active issues for "Awaiting Response" entries; scan inbox for matching replies
+    - Classify each inbox message:
+        - contract_update → Phase 1
+        - implementation_plan → Phase 0b
+        - qa_finding → match to active issue, prioritize re-fix
+        - backend_response → match to original thread, unblock or create issue
+        - status_update → acknowledge, no action unless blocking
+    - Match findings and backend responses to active issues
     - Unblock issues where dependencies are resolved
-    - Pick next issue to work (lowest ID unblocked, or QA-rejected issue first)
+    - Pick next issue (lowest ID unblocked, or QA-rejected first)
   sources:
     - dev_communication/frontend/inbox
     - dev_communication/frontend/issues/queue
     - dev_communication/frontend/issues/active
 
 # ---------------------------------------------------------------------------
+# Phase 0b: Assess & Decompose
+# ---------------------------------------------------------------------------
+
+phase_0b_assess:
+  name: Assess and decompose into issues
+  trigger: new_plan_or_large_request
+  steps:
+    - Read the full request/plan document
+    - Identify distinct work items (components, pages, bug fixes, confirmations)
+    - Group into phases ordered by dependency
+    - Create a plan document in dev_communication/shared/plans/ if needed
+    - Create individual issues in frontend/issues/queue/ for each work item
+    - Note dependencies between issues
+    - Proceed to Phase 1
+
+# ---------------------------------------------------------------------------
 # Phase 1: Contracts & Cross-Team Setup
 # ---------------------------------------------------------------------------
-# Before writing any code. If the issue touches API endpoints, define or
-# verify contracts first and send requests to backend.
 
 phase_1_contracts:
   name: Check and request contracts
   steps:
-    - Read dev_communication/shared/contracts/types/ for existing DTOs
-    - If new/changed endpoints are needed, draft contract and send to backend/inbox/
+    - Read contracts/types/ for existing DTOs
+    - If new/changed endpoints needed, send request to backend/inbox/
     - Wait for backend acknowledgment before implementing against new contracts
     - If contracts already exist and are sufficient, proceed
   rule: >
     Never invent local type shapes that differ from contract DTOs.
     Never write normalizers, transforms, or compatibility shims.
     If the contract is insufficient, send a message — don't work around it.
-  reference: ADR-DEV-004-CONSUME-CONTRACTS-DIRECTLY-NO-NORMALIZERS
+    (ADR-DEV-004)
+  outbound_tracking: >
+    When sending a contract request or clarification, note it in the
+    related issue file under "Awaiting Response" with message filename
+    and date. Remove when the reply is processed.
 
 # ---------------------------------------------------------------------------
 # Phase 2: Context Loading
@@ -65,8 +86,7 @@ phase_2_context:
     - Load relevant ADRs from dev_communication/shared/architecture/decisions/
     - Load memory patterns from memory/patterns/
     - Read the issue file for acceptance criteria and prior QA findings
-    - Identify which ADRs apply by change type (see ADR-DEV-002)
-  skill: /context
+    - Review existing code in the affected domain
 
 # ---------------------------------------------------------------------------
 # Phase 3: Implementation
@@ -75,21 +95,20 @@ phase_2_context:
 phase_3_implement:
   name: Implement
   steps:
-    - Move issue from queue/ to active/ (if not already active)
+    - Move issue from queue/ to active/ (if not already)
     - Plan if complex (multi-file, architectural decision, multiple approaches)
     - Implement following existing patterns and ADRs
     - Consume contract DTOs directly — no normalizers
-    - Write tests for new functionality as part of implementation
-    - If QA-rejected, address specific QA findings before re-verifying
+    - Write tests for new functionality
+    - If QA re-fix, address specific QA findings first
   rules:
-    - New functionality must have corresponding tests
+    - New functionality MUST have corresponding tests
     - Follow FSD architecture (entities, features, pages, shared, widgets)
     - Consume contracts directly (ADR-DEV-004)
 
 # ---------------------------------------------------------------------------
 # Phase 4: Dev Verification Gate (BLOCKING)
 # ---------------------------------------------------------------------------
-# All must pass. Do not hand off to QA with failures.
 
 phase_4_verify:
   name: Dev verification gate
@@ -113,70 +132,34 @@ phase_4_verify:
 # ---------------------------------------------------------------------------
 
 phase_5_document:
-  name: Document, commit, and hand off to QA
-  substeps:
-    5a_documentation:
-      name: Documentation
-      steps:
-        - Create session file at memory/sessions/{date}-{issue-slug}.md
-        - Append resolution notes to the issue file
-        - If new pattern discovered, update memory/patterns/ or /adr suggest
-        - If cross-team impact, send message via /comms send
-    5b_commit:
-      name: Commit (MANDATORY — do not wait for user prompt)
-      steps:
-        - Stage all changed files relevant to the issue (git add with specific paths)
-        - Create a commit with a descriptive message referencing the issue ID
-        - Record the commit hash(es)
-    5c_issue_state:
-      name: Issue state update (MANDATORY — do not wait for user prompt)
-      steps:
-        - Write commit hash(es) into the issue file Completion section
-        - Set "QA: PENDING" on the issue file (confirms dev is done, QA can pick up)
-        - Update the issue "Updated:" date to today
-  execution_rule: >
-    Sub-phases 5a → 5b → 5c are sequential and automatic.
-    Phase 5 is NOT complete until all three sub-phases have executed.
-    Do NOT stop after documentation and ask the user — commit and update
-    state immediately.
+  name: Document and hand off to QA
+  steps:
+    - Create session file at memory/sessions/{date}-{issue-slug}.md
+    - Append resolution notes to the issue file
+    - If cross-team impact, send message to backend/inbox/
+    - Commit and push
   handoff_rule: >
     Issue stays in active/ with Status: ACTIVE.
     Do NOT move to completed/. Do NOT set Status: COMPLETE.
-    QA owns Phase 6 (verification) and Phase 7 (completion).
+    QA owns verification and completion.
 
 # ---------------------------------------------------------------------------
-# Phase 6: Wait for QA
+# Phase 6: Iterate
 # ---------------------------------------------------------------------------
-# Dev does not act here. QA runs their qa-gate.yaml checklist.
-# This phase ends when QA writes back to frontend/inbox/ or updates
-# the issue file with findings.
 
-phase_6_wait_for_qa:
-  name: Wait for QA verdict
-  action: poll
-  poll_sources:
-    - dev_communication/frontend/inbox
-    - dev_communication/frontend/issues/active
-  look_for:
-    - QA verdict appended to issue file (Pass, Blocked, Need More Info)
-    - QA message in frontend/inbox/ referencing the issue
+phase_6_iterate:
+  name: Iterate
+  while_waiting: >
+    Pick the next unblocked issue and begin Phase 2.
+    Multiple issues can be in-flight at different phases.
   outcomes:
     pass: QA moves issue to completed/ — done
-    blocked: return to phase_0 with QA findings, iterate
-    need_more_info: return to phase_0, respond to QA questions
-
-# ---------------------------------------------------------------------------
-# Phase 7: Iterate Until Acceptance
-# ---------------------------------------------------------------------------
-# On QA rejection, loop back to Phase 0. The inbox will contain QA findings.
-# Address findings, re-verify, re-document, and wait for QA again.
-
-phase_7_iterate:
-  name: Iterate on QA findings
+    blocked: return to Phase 0 with QA findings, iterate
+    need_more_info: return to Phase 0, respond to QA questions
   loop: phase_0_comms
   exit_condition: >
-    All issues in frontend/issues/active/ have been moved to completed/
-    by QA, OR no more issues remain in queue/ or active/.
+    All issues moved to completed/ by QA, no issues in queue/,
+    no unprocessed inbox messages, no open outbound threads.
 
 # ---------------------------------------------------------------------------
 # Automation
@@ -187,6 +170,5 @@ automation:
     typecheck: npx tsc --noEmit
     unit: npx vitest run
     integration: npx vitest run --config vitest.integration.config.ts
-    uat: npx playwright test --project=chromium
   issue_prefix: UI-ISS
   session_path: memory/sessions/{date}-{issue-slug}.md

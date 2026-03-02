@@ -22,106 +22,95 @@ INNER LOOP: Implement → Verify → Document → QA Handoff → Iterate
 
 **When:** Start of every iteration (outer loop entry point).
 
-1. Read your team's inbox for new messages
-2. Read your team's `issues/queue/` for unstarted issues
-3. Read your team's `issues/active/` for in-progress or QA-blocked issues
-4. Classify each inbox message:
+1. Read your team's inbox — every file, no skipping
+2. Read `issues/queue/` for unstarted issues
+3. Read `issues/active/` for in-progress or QA-blocked issues
+4. Check active issues for `## Awaiting Response` entries; scan inbox for
+   matching replies (`In-Response-To` headers referencing your outbound messages)
+5. Classify each inbox message:
 
 | Message Type | Action |
 |-------------|--------|
-| Contract request | → Phase 1 (define contracts) |
-| Implementation plan / crosswalk | → Phase 0b (assess & decompose) |
+| Contract request | → Phase 1 |
+| Implementation plan / crosswalk | → Phase 0b |
 | QA finding / rejection | → Match to active issue, prioritize re-fix |
 | Bug report from other team | → Phase 0b (assess, create issue) |
+| Reply to our outbound request | → Match to original thread, unblock or create issue |
 | Status update | → Acknowledge, no action unless blocking |
 
-5. Match QA findings and cross-team requests to active issues
-6. Unblock issues where dependencies are resolved
+6. Match findings and cross-team requests to active issues
+7. Unblock issues where dependencies are resolved
 
 ---
 
 ## Phase 0b: Assess & Decompose
 
-**When:** New plan, crosswalk, large request, or multi-endpoint feature — anything
-that is NOT a single issue.
+**When:** New plan, crosswalk, or multi-endpoint feature (anything larger than a single issue).
 
 1. Read the full request/plan document
-2. Identify distinct work items (new endpoints, enhancements, bug fixes, confirmations)
-3. Group into implementation phases ordered by dependency and priority
-4. Create a plan document in `dev_communication/shared/plans/` if one doesn't exist
-5. Create individual issues in your team's `issues/queue/` for each work item
-6. Note dependencies between issues (which issues block which)
-7. Proceed to Phase 1 with the full set of issues
-
-**Rules:**
-- Every actionable item becomes a tracked issue
-- Phase ordering respects dependencies (contracts before implementation)
-- Plan documents live in `dev_communication/shared/plans/`
-- Issues reference the plan document for traceability
+2. Identify distinct work items (endpoints, enhancements, bug fixes, confirmations)
+3. Group into phases ordered by dependency
+4. Create a plan document in `dev_communication/shared/plans/` if needed
+5. Create individual issues in `issues/queue/` for each work item
+6. Note dependencies between issues
+7. Proceed to Phase 1
 
 ---
 
 ## Phase 1: Contracts & Cross-Team Setup
 
-**When:** New or changed endpoints are needed (either from a plan or a single request).
+**When:** New or changed endpoints are needed.
 
-### For Backend-Dev (contract owner):
-1. Read cross-team contract requests from your inbox
+### Backend-Dev (contract owner):
+1. Read cross-team contract requests from inbox
 2. Read `contracts/types/` for existing DTOs
-3. For EACH new/changed endpoint across ALL planned issues:
-   - Define the contract DTO in `contracts/types/`
-   - Include request shape, response shape, query params, error cases
+3. Define contract DTOs for each new/changed endpoint
 4. Send ONE consolidated contract confirmation to the other team's inbox
-5. Include: endpoint paths, DTO details, implementation timeline/ordering
 
-### For Frontend-Dev (contract consumer):
+### Frontend-Dev (contract consumer):
 1. Check `contracts/types/` for available DTOs
-2. If a contract is missing or insufficient, send a request to backend's inbox
-3. Never invent local type shapes that differ from the contract
-4. Never write normalizers, transforms, or compatibility shims
+2. If missing or insufficient, send a request to backend's inbox
+3. Never invent local type shapes or write normalizers/transforms
 
-**Key rule:** Backend defines contracts, frontend consumes them. For plans with
-multiple endpoints, send ALL contracts upfront so the other team is not waiting.
+**Key rule:** Backend defines contracts, frontend consumes them. Send ALL contracts
+upfront for multi-endpoint plans. (ADR-DEV-004)
 
-**Reference:** ADR-DEV-004-CONSUME-CONTRACTS-DIRECTLY-NO-NORMALIZERS
+**Outbound thread tracking:** When you send a contract request or clarification,
+note it in the related issue file under `## Awaiting Response` with the message
+filename and date. Remove the entry when the reply is processed.
 
 ---
 
 ## Phase 2: Context Loading
 
 1. Load relevant ADRs from `dev_communication/shared/architecture/decisions/`
-2. Load memory patterns from `memory/patterns/` (or equivalent memory store)
-3. Read the issue file for acceptance criteria and any prior QA findings
-4. Identify which ADRs apply by change type
-5. Review existing code in the affected domain (models, services, routes)
-
-**Skill:** `/context` (if available on platform)
+2. Load memory patterns from `memory/patterns/`
+3. Read the issue file for acceptance criteria and prior QA findings
+4. Review existing code in the affected domain
 
 ---
 
 ## Phase 3: Implementation
 
-1. Move issue from `queue/` to `active/` (if not already active)
+1. Move issue from `queue/` to `active/` (if not already)
 2. Plan if complex (schema migration, multi-service change, new middleware)
-3. Implement the feature/fix following project architecture
+3. Implement following project architecture
 4. Ensure response shapes match contract DTOs exactly
-5. Write tests for new functionality as part of implementation
-6. If this is a QA re-fix, address the specific QA findings before re-verifying
+5. Write tests for new functionality
+6. If QA re-fix, address specific QA findings first
 
 **Rules:**
 - New functionality MUST have corresponding tests
 - Response shapes MUST match shared contract DTOs
-- Validate at system boundaries (request input, external APIs)
 - Do not add backward-compatibility shims or deprecated fields
-- When spawning sub-agents, include testing requirements
 
 ---
 
 ## Phase 4: Dev Verification Gate (BLOCKING)
 
-All checks must pass. Do NOT hand off to QA with failures.
+All checks must pass before handoff. Fix and re-run on failure.
 
-### Backend-Dev checks:
+### Backend-Dev:
 | Check | Command | Criteria |
 |-------|---------|----------|
 | Typecheck | `npx tsc --noEmit` | 0 errors |
@@ -129,7 +118,7 @@ All checks must pass. Do NOT hand off to QA with failures.
 | Integration tests | `npm run test:integration` | All pass |
 | Tests exist | (manual) | New functionality has tests |
 
-### Frontend-Dev checks:
+### Frontend-Dev:
 | Check | Command | Criteria |
 |-------|---------|----------|
 | Typecheck | `npx tsc --noEmit` | 0 errors |
@@ -137,69 +126,39 @@ All checks must pass. Do NOT hand off to QA with failures.
 | Integration tests | `npx vitest run --config integration` | All pass |
 | Tests exist | (manual) | New functionality has tests |
 
-**On failure:** Fix and re-run. Do not proceed to Phase 5.
-
 ---
 
 ## Phase 5: Documentation & Handoff
 
-### 5a. Documentation
 1. Create session file at `memory/sessions/{date}-{issue-slug}.md`
 2. Append resolution notes to the issue file
-3. If contract was added/changed, confirm contract types are updated
-4. If new pattern discovered, update memory patterns or suggest ADR
-5. If cross-team impact, send message to other team's inbox
+3. Confirm contract types are updated (if changed)
+4. If cross-team impact, send message to other team's inbox
+5. Commit and push
 
-### 5b. Commit (MANDATORY — do not wait for user prompt)
-6. Stage all changed files relevant to the issue (use `git add` with specific paths)
-7. Create a commit with a descriptive message referencing the issue ID
-8. Record the commit hash(es)
-
-### 5c. Issue State Update (MANDATORY — do not wait for user prompt)
-9. Write the commit hash(es) into the issue file's Completion section
-10. Set `## QA: PENDING` on the issue file (confirms dev is done, QA can pick it up)
-11. Update the issue `## Updated:` date to today
-
-**These three sub-phases (5a → 5b → 5c) are sequential and automatic.**
-Phase 5 is not complete until all three sub-phases have executed.
-Do NOT stop after documentation and ask the user — commit and update state immediately.
-
-**Handoff rule (CRITICAL):**
+**Handoff rules:**
 - Issue stays in `active/` with Status: ACTIVE
-- Do NOT move to `completed/`. Do NOT set Status: COMPLETE.
-- QA owns Phase 6 (verification) and Phase 7 (completion).
-- Dev does NOT run QA gate checks — that is QA's job.
+- Do NOT move to `completed/` or set Status: COMPLETE — QA owns that
+- Dev does NOT run QA gate checks
 
 ---
 
-## Phase 6: Wait for QA
+## Phase 6: Iterate
 
-Dev does not act here. QA runs their qa-gate lifecycle independently.
+QA runs verification independently. While waiting:
+- Pick the next unblocked issue and begin Phase 2
+- Multiple issues can be in-flight at different phases
 
-**While waiting:** Do NOT idle. Pick the next unblocked issue from `queue/` or
-`active/` and begin Phase 2 for that issue. Multiple issues can be in-flight
-at different phases simultaneously.
+**When QA responds:**
 
-**This phase ends when:**
-- QA writes back to your inbox with a verdict, OR
-- QA updates the issue file with findings
-
-**Outcomes:**
 | QA Verdict | Action |
 |-----------|--------|
 | Pass | QA moves issue to `completed/` — done |
 | Blocked | Return to Phase 0 with QA findings, iterate |
 | Need More Info | Return to Phase 0, respond to QA questions |
 
----
-
-## Phase 7: Iterate
-
-Loop back to Phase 0 (outer loop). The inbox will contain any QA findings,
-new cross-team requests, or new work.
-
-**Exit condition:** All issues in `active/` have been moved to `completed/` by QA,
-AND no issues remain in `queue/`, AND no unprocessed messages remain in inbox.
+**Exit condition:** All issues moved to `completed/` by QA, no issues in `queue/`,
+no unprocessed inbox messages, no open outbound threads.
 
 ---
 
@@ -208,8 +167,8 @@ AND no issues remain in `queue/`, AND no unprocessed messages remain in inbox.
 | Action | Owner |
 |--------|-------|
 | Create issues | Dev |
-| Move issue queue/ → active/ | Dev |
-| Move issue active/ → completed/ | **QA only** |
+| Move queue/ → active/ | Dev |
+| Move active/ → completed/ | **QA only** |
 | Set Status: COMPLETE | **QA only** |
 | Run QA verification suite | **QA only** |
 | Define backend contracts | Backend-Dev |

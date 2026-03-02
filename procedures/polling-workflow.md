@@ -13,33 +13,30 @@ development or QA workflow executed in a continuous loop.
 Confirm sub-role is established (prompted at session start). Read `team.json` for team paths.
 Read `ai_team_config/roles/{sub-role}.yaml` for:
 - `role_id` — which lifecycle to follow
-- `team_id` — which communication directories to check (also available in `team.json`)
+- `team_id` — which communication directories to check
 - `function` — `dev` or `qa`
 
 ## Step 2: Load Your Lifecycle
 
-Based on `function`:
-
-| Function | Procedure | Checklist (machine-readable) |
-|----------|-----------|------------------------------|
+| Function | Procedure | Checklist |
+|----------|-----------|-----------|
 | `dev` | `procedures/dev-lifecycle.md` | `teams/checklists/dev-issue-lifecycle-backend.yaml` (backend) or `dev-issue-lifecycle.yaml` (frontend) |
 | `qa` | `procedures/qa-lifecycle.md` | `teams/checklists/qa-gate.yaml` |
 
 ## Step 3: Execute the Lifecycle Loop
 
-**Dev roles:** Execute the full dev lifecycle — poll comms, assess incoming work,
-decompose plans into issues, define contracts, implement, verify, document, hand
-off to QA, then loop back to poll for more work.
+**Dev roles:** Poll comms → assess → plan → contracts → implement → verify →
+document → QA handoff → loop back.
 
-**QA roles:** Execute the full QA lifecycle — poll for QA-ready items, validate
-entry criteria, run automated verification, perform manual review, emit verdict,
-complete or iterate, then loop back to poll.
+**QA roles:** Poll for QA-ready items → validate → verify → review → verdict →
+complete or iterate → loop back.
 
 ## Step 4: Loop Until Exit
 
 Continue the outer loop until ALL of:
 - No unprocessed messages remain in your inbox
-- No issues remain in queue/ or active/ (all moved to completed/ by QA)
+- No open outbound threads awaiting replies (see dev-lifecycle.md Phase 0, step 4)
+- No issues remain in queue/ or active/
 - No new work has arrived since last poll
 
 ### Autonomous Polling Rules
@@ -55,7 +52,7 @@ Continue the outer loop until ALL of:
 ## What Polling Is NOT
 
 - NOT passive file watching that only reports new files
-- NOT running the QA test suite (that is QA's job, not Dev's)
+- NOT running the other role's checks (QA is QA's job, not Dev's)
 - NOT a single check — it is a continuous loop with real work between polls
-- NOT limited to single issues — plans, crosswalk requests, and multi-phase
-  implementations all flow through the same lifecycle
+- NOT "continue where you left off" — every iteration restarts from Phase 0
+  (inbox scan first, then implementation)
