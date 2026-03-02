@@ -113,12 +113,32 @@ phase_4_verify:
 # ---------------------------------------------------------------------------
 
 phase_5_document:
-  name: Document and hand off to QA
-  steps:
-    - Create session file at memory/sessions/{date}-{issue-slug}.md
-    - Append resolution notes to the issue file
-    - If new pattern discovered, update memory/patterns/ or /adr suggest
-    - If cross-team impact, send message via /comms send
+  name: Document, commit, and hand off to QA
+  substeps:
+    5a_documentation:
+      name: Documentation
+      steps:
+        - Create session file at memory/sessions/{date}-{issue-slug}.md
+        - Append resolution notes to the issue file
+        - If new pattern discovered, update memory/patterns/ or /adr suggest
+        - If cross-team impact, send message via /comms send
+    5b_commit:
+      name: Commit (MANDATORY — do not wait for user prompt)
+      steps:
+        - Stage all changed files relevant to the issue (git add with specific paths)
+        - Create a commit with a descriptive message referencing the issue ID
+        - Record the commit hash(es)
+    5c_issue_state:
+      name: Issue state update (MANDATORY — do not wait for user prompt)
+      steps:
+        - Write commit hash(es) into the issue file Completion section
+        - Set "QA: PENDING" on the issue file (confirms dev is done, QA can pick up)
+        - Update the issue "Updated:" date to today
+  execution_rule: >
+    Sub-phases 5a → 5b → 5c are sequential and automatic.
+    Phase 5 is NOT complete until all three sub-phases have executed.
+    Do NOT stop after documentation and ask the user — commit and update
+    state immediately.
   handoff_rule: >
     Issue stays in active/ with Status: ACTIVE.
     Do NOT move to completed/. Do NOT set Status: COMPLETE.

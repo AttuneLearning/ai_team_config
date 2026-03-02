@@ -143,12 +143,26 @@ All checks must pass. Do NOT hand off to QA with failures.
 
 ## Phase 5: Documentation & Handoff
 
+### 5a. Documentation
 1. Create session file at `memory/sessions/{date}-{issue-slug}.md`
 2. Append resolution notes to the issue file
 3. If contract was added/changed, confirm contract types are updated
 4. If new pattern discovered, update memory patterns or suggest ADR
 5. If cross-team impact, send message to other team's inbox
-6. Commit and push
+
+### 5b. Commit (MANDATORY — do not wait for user prompt)
+6. Stage all changed files relevant to the issue (use `git add` with specific paths)
+7. Create a commit with a descriptive message referencing the issue ID
+8. Record the commit hash(es)
+
+### 5c. Issue State Update (MANDATORY — do not wait for user prompt)
+9. Write the commit hash(es) into the issue file's Completion section
+10. Set `## QA: PENDING` on the issue file (confirms dev is done, QA can pick it up)
+11. Update the issue `## Updated:` date to today
+
+**These three sub-phases (5a → 5b → 5c) are sequential and automatic.**
+Phase 5 is not complete until all three sub-phases have executed.
+Do NOT stop after documentation and ask the user — commit and update state immediately.
 
 **Handoff rule (CRITICAL):**
 - Issue stays in `active/` with Status: ACTIVE
