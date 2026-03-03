@@ -35,11 +35,13 @@ issues:
     values:
       - PENDING
       - IN_PROGRESS
+      - PENDING_MANUAL_REVIEW
       - BLOCKED
       - PASS
     transition_rules:
       - Dev sets QA=PENDING for QA handoff and after re-fix.
       - QA sets QA=IN_PROGRESS when verification starts.
+      - QA sets QA=PENDING_MANUAL_REVIEW after automated checks pass but manual review is still needed.
       - QA sets QA=BLOCKED when findings remain.
       - QA sets QA=PASS only when approving completion.
   naming: "{ISSUE_PREFIX}-{NNN}_{brief_description}.md"
@@ -130,6 +132,7 @@ issue_lifecycle:
       can_reject: true
       transitions:
         qa_field_on_enter: "IN_PROGRESS"
+        qa_field_on_automated_pass: "PENDING_MANUAL_REVIEW"
         qa_field_on_fail: "BLOCKED"
         qa_field_on_pass: "PASS"
       checklist: "ai_team_config/teams/checklists/qa-gate.yaml"

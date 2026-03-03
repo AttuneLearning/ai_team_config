@@ -28,6 +28,7 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
    - "Awaiting QA"
    - "QA Ready"
    - "Resolution Notes" (appended by Dev)
+   - `QA: PENDING_MANUAL_REVIEW` (automated checks passed, manual review needed)
 4. Check for stale blocks: if an issue has `QA: BLOCKED` and the last QA
    verification is older than 12 hours, include it in the candidate set
    for automatic re-check
@@ -85,6 +86,10 @@ Run the automated test gates. All must pass for the issue to proceed.
 **Per-check timeout:** As configured in role yaml (default 120s).
 
 **On failure:** Record which gate failed. Move to Phase 4 with "Blocked" verdict.
+
+**On success:** Set `QA: PENDING_MANUAL_REVIEW` to signal that automated checks passed
+and the issue is ready for manual review. This allows QA to pick up the issue on a
+subsequent poll cycle if manual review cannot happen immediately.
 
 ---
 

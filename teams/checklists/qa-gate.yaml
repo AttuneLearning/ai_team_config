@@ -20,11 +20,13 @@ qa_state:
   values:
     - PENDING
     - IN_PROGRESS
+    - PENDING_MANUAL_REVIEW
     - BLOCKED
     - PASS
   rules:
     - Dev sets QA=PENDING when requesting QA or after re-fix.
     - QA sets QA=IN_PROGRESS when verification begins.
+    - QA sets QA=PENDING_MANUAL_REVIEW after automated checks pass; signals manual review needed.
     - QA sets QA=BLOCKED when findings remain.
     - QA sets QA=PASS only when completion criteria pass and issue is moved to completed/.
 
@@ -38,7 +40,7 @@ phase_0_comms:
   steps:
     - Read {team}/inbox/ for new messages
     - Read {team}/issues/active/ for issues with dev resolution notes
-    - Parse issue QA field and include QA=PENDING items in candidate set
+    - Parse issue QA field and include QA=PENDING and QA=PENDING_MANUAL_REVIEW items in candidate set
     - Check for stale blocks (QA=BLOCKED with last verification >12h ago) — auto-include for recheck
     - Classify each inbox message (qa_review_request, dev_refix, cross_team_response, status_update)
     - Match dev resolution notes and re-fix messages to active issues
@@ -69,7 +71,7 @@ phase_1_entry:
     - If entry criteria not met, emit Need More Info verdict and notify dev
   entry_criteria:
     - Issue file exists under issues/active with Status ACTIVE
-    - Issue includes QA field with value PENDING, or BLOCKED with new dev evidence
+    - Issue includes QA field with value PENDING, PENDING_MANUAL_REVIEW, or BLOCKED with new dev evidence
     - Dev resolution notes are present
     - Acceptance criteria are defined
     - Dev handoff is fresh (newer than last QA verification)
