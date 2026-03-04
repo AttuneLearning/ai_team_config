@@ -29,10 +29,12 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
    - "QA Ready"
    - "Resolution Notes" (appended by Dev)
    - `QA: PENDING_MANUAL_REVIEW` (automated checks passed, manual review needed)
-4. Check for stale blocks: if an issue has `QA: BLOCKED` and the last QA
+4. Include issues with `QA: PENDING_MANUAL_REVIEW` — these passed automated
+   gates and need manual review to be completed
+5. Check for stale blocks: if an issue has `QA: BLOCKED` and the last QA
    verification is older than 12 hours, include it in the candidate set
    for automatic re-check
-5. Classify inbox messages:
+6. Classify inbox messages:
 
 | Message Type | Action |
 |-------------|--------|
@@ -40,7 +42,8 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 | Dev re-fix after rejection | → Phase 1 (re-validate) |
 | Cross-team status update | → Acknowledge |
 
-6. Prioritize: re-fixes of previously blocked issues first, then new handoffs
+7. Prioritize: `PENDING_MANUAL_REVIEW` issues first (already passed automated gates),
+   then re-fixes of previously blocked issues, then new handoffs
 
 ---
 
@@ -48,7 +51,7 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 
 Before running any checks, confirm the issue is ready:
 
-1. Issue has Status: ACTIVE
+1. Issue has Status: ACTIVE or DEV_COMPLETE
 2. Resolution notes are present (Dev filled these in during Phase 5)
 3. Acceptance criteria are defined
 4. Dev verification gate results are documented (typecheck, tests)
@@ -85,11 +88,11 @@ Run the automated test gates. All must pass for the issue to proceed.
 
 **Per-check timeout:** As configured in role yaml (default 120s).
 
-**On failure:** Record which gate failed. Move to Phase 4 with "Blocked" verdict.
+**On all pass (no manual review):** Set `QA: PENDING_MANUAL_REVIEW`. Do NOT send
+a message to Dev's inbox — this is not a dev blocker. Move to Phase 4 with
+"Pending Manual Review" verdict.
 
-**On success:** Set `QA: PENDING_MANUAL_REVIEW` to signal that automated checks passed
-and the issue is ready for manual review. This allows QA to pick up the issue on a
-subsequent poll cycle if manual review cannot happen immediately.
+**On failure:** Record which gate failed. Move to Phase 4 with "Blocked" verdict.
 
 ---
 
@@ -118,12 +121,17 @@ Human-judgment checks that automation cannot catch:
 
 Emit one of four verdicts:
 
-| Verdict | When | Next Step |
-|---------|------|-----------|
-| **Pass** | All gates green, manual review clean | → Phase 5 (complete) |
-| **Pass with Conditions** | Minor issues, non-blocking | → Phase 5 with notes |
-| **Blocked** | Any gate failed or critical manual finding | → Phase 6 (iterate) |
-| **Need More Info** | Cannot determine pass/fail | → Phase 6 (iterate) |
+| Verdict | When | QA State | Next Step |
+|---------|------|----------|-----------|
+| **Pass** | All gates green, manual review clean | `PASS` | → Phase 5 (complete) |
+| **Pass with Conditions** | Minor issues, non-blocking | `PASS` | → Phase 5 with notes |
+| **Pending Manual Review** | All automated gates pass, manual review not done | `PENDING_MANUAL_REVIEW` | → Phase 6 (QA picks up on next iteration) |
+| **Blocked** | Automated gate failed OR critical manual finding | `BLOCKED` | → Phase 6 (dev must fix) |
+| **Need More Info** | Cannot determine pass/fail | `BLOCKED` | → Phase 6 (iterate) |
+
+**IMPORTANT:** `PENDING_MANUAL_REVIEW` is NOT a dev blocker. Do NOT send findings
+to Dev's inbox for this verdict. Dev should ignore issues in this state — they are
+QA's responsibility to complete.
 
 **Required evidence for every verdict:**
 - Issue reference (ISS-xxx)
@@ -156,7 +164,13 @@ Emit one of four verdicts:
 
 ## Phase 6: Iterate
 
-For Blocked or Need More Info verdicts:
+### Pending Manual Review verdict:
+
+1. Issue stays in `active/` with `QA: PENDING_MANUAL_REVIEW`
+2. Do NOT send a message to Dev — no dev action is needed
+3. QA picks this up on the next iteration (skip automated gates, go directly to Phase 3)
+
+### Blocked or Need More Info verdicts:
 
 1. Send findings to Dev's inbox with:
    - Which gates failed and why
@@ -169,6 +183,29 @@ For Blocked or Need More Info verdicts:
 
 **Exit condition:** All issues in `active/` have been moved to `completed/`,
 no unprocessed messages remain in inbox.
+
+---
+
+## Autonomous Mode
+
+The QA polling script supports `--autonomous` mode for unattended operation:
+
+```bash
+# Fully autonomous (recommended for unattended runs)
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+
+# Two-pass mode (manual review separated)
+# Pass 1: Run gates, issues reaching all-pass get PENDING_MANUAL_REVIEW
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once
+# Pass 2: After operator reviews, promote to PASS and complete
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once
+```
+
+`--autonomous` implies `--watch --approve --recheck-existing --emit-dev-message`.
+Explicit flags (e.g. `--once`, `--no-emit-dev-message`) override these defaults.
+
+See `dev_communication/shared/specs/POLLING_AUTONOMOUS_QA_REVISION.md` for full
+specification.
 
 ---
 

@@ -95,7 +95,14 @@ Instead of relying on slash-commands, these skills should be invoked based on us
 Frontend-QA and Backend-QA can run the shared cycle script from repository root:
 
 ```bash
-ai_team_config/scripts/qa_poll_cycle.sh --once
+# Fully autonomous (recommended)
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+
+# Two-pass mode
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once        # gates only
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once  # promote
+
+# Legacy commands (still supported)
 ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
 ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
 ```
@@ -104,6 +111,7 @@ Issue QA state field:
 
 - `QA: PENDING` -> ready for QA start or dev re-fix recheck
 - `QA: IN_PROGRESS` -> QA verification running
+- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action)
 - `QA: BLOCKED` -> QA findings remain; dev action required
 - `QA: PASS` -> QA accepted (required before `Status: COMPLETE`)
 

@@ -10,9 +10,10 @@ Use this checklist after polling for new QA-ready work.
 
 ## QA State Field
 
-- Every issue must include `QA: PENDING | IN_PROGRESS | BLOCKED | PASS`.
+- Every issue must include `QA: PENDING | IN_PROGRESS | PENDING_MANUAL_REVIEW | BLOCKED | PASS`.
 - Dev sets `QA: PENDING` for initial QA handoff and after re-fix.
 - QA sets `QA: IN_PROGRESS` when validation starts.
+- QA sets `QA: PENDING_MANUAL_REVIEW` when all automated gates pass but manual review is not yet complete (not a dev blocker).
 - QA sets `QA: BLOCKED` when findings remain.
 - QA sets `QA: PASS` before completion (`Status: COMPLETE` + move to `completed/`).
 
@@ -76,3 +77,28 @@ QA_CMD_INTEGRATION="timeout 120s npm run test:integration" \
 QA_CMD_UAT="timeout 120s npm run test:uat" \
 ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
 ```
+
+## Autonomous Mode
+
+The script supports `--autonomous` which implies `--watch --approve --recheck-existing --emit-dev-message`.
+Explicit flags always override autonomous defaults.
+
+Fully autonomous (recommended):
+
+```bash
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+```
+
+Two-pass mode (manual review separated):
+
+```bash
+# Pass 1: Run gates, PENDING_MANUAL_REVIEW for passing issues
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once
+
+# Pass 2: Promote after manual review
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once
+```
+
+Note: With `--autonomous`, the script handles gate timeouts (120s default), crash
+recovery (stale IN_PROGRESS reset), freshness checks for BLOCKED issues, and
+completion sweep (no QA: PASS issue remains in active/ after cycle end).

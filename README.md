@@ -127,19 +127,27 @@ Agent-runnable QA cycle script:
 Issue QA state field (required):
 - `QA: PENDING` -> awaiting QA start or dev re-fix recheck
 - `QA: IN_PROGRESS` -> QA verification running
+- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action)
 - `QA: BLOCKED` -> QA findings remain
 - `QA: PASS` -> QA accepted; required before `Status: COMPLETE`
 
 Examples:
 
 ```bash
-# one-shot QA poll + verification
-ai_team_config/scripts/qa_poll_cycle.sh --once
+# Fully autonomous (recommended for unattended runs)
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
 
-# mark passing issues complete (after manual review)
+# Two-pass mode (manual review separated)
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once        # gates only
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once  # promote
+
+# Single issue evaluation
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --issue API-ISS-114 --once
+
+# Legacy one-shot (still works)
 ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
 
-# poll every 4 minutes
+# Poll every 4 minutes
 ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
 ```
 

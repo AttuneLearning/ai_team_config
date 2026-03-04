@@ -15,6 +15,8 @@ Options:
   --idle-stop-seconds N     Stop watch mode after N seconds with no inbox/active issue changes (default: 1800)
   --watch                   Run continuously
   --once                    Run a single poll cycle (default)
+  --autonomous              Implies --watch --approve --recheck-existing --emit-dev-message.
+                            Explicit flags always override autonomous defaults.
   --approve                 If gates pass, set issue to COMPLETE and move active -> completed
   --manual-ok               Confirm manual code review is complete for this run
   --manual-notes TEXT       Manual review notes appended to QA evidence
@@ -22,6 +24,9 @@ Options:
   --recheck-existing        Re-run QA on issues that already have QA Verification entries
   --emit-dev-message        Write QA pass/blocked messages to team inbox (default)
   --no-emit-dev-message     Do not write QA pass/blocked messages
+  --stale-recheck-hours N   Re-run BLOCKED issues after N hours even without fresh evidence (default: 12)
+  --no-stale-recheck        Disable time-based recheck; require fresh dev evidence only
+  --gate-timeout SECONDS    Per-gate execution timeout (default: 120)
   --dry-run                 Do not modify issue/message files
   --help                    Show this help
 
@@ -60,6 +65,15 @@ issue_filter=""
 recheck_existing=0
 emit_dev_message=1
 dry_run=0
+autonomous=0
+gate_timeout=120
+stale_recheck_hours=12
+stale_recheck=1
+stale_in_progress_minutes=60
+
+# Track which flags were explicitly set to implement flag precedence
+explicit_watch=0
+explicit_emit=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -68,20 +82,36 @@ while [[ $# -gt 0 ]]; do
     --role) role_id="$2"; shift 2 ;;
     --interval) poll_interval="$2"; shift 2 ;;
     --idle-stop-seconds) idle_stop_seconds="$2"; shift 2 ;;
-    --watch) watch_mode=1; shift 1 ;;
-    --once) watch_mode=0; shift 1 ;;
+    --watch) watch_mode=1; explicit_watch=1; shift 1 ;;
+    --once) watch_mode=0; explicit_watch=1; shift 1 ;;
+    --autonomous) autonomous=1; shift 1 ;;
     --approve) approve_mode=1; shift 1 ;;
     --manual-ok) manual_ok=1; shift 1 ;;
     --manual-notes) manual_notes="$2"; shift 2 ;;
     --issue) issue_filter="$2"; shift 2 ;;
     --recheck-existing) recheck_existing=1; shift 1 ;;
-    --emit-dev-message) emit_dev_message=1; shift 1 ;;
-    --no-emit-dev-message) emit_dev_message=0; shift 1 ;;
+    --emit-dev-message) emit_dev_message=1; explicit_emit=1; shift 1 ;;
+    --no-emit-dev-message) emit_dev_message=0; explicit_emit=1; shift 1 ;;
+    --stale-recheck-hours) stale_recheck_hours="$2"; shift 2 ;;
+    --no-stale-recheck) stale_recheck=0; shift 1 ;;
+    --gate-timeout) gate_timeout="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift 1 ;;
     --help|-h) usage; exit 0 ;;
     *) err "Unknown argument: $1"; usage; exit 1 ;;
   esac
 done
+
+# --autonomous sets defaults; explicit flags override
+if [[ "$autonomous" -eq 1 ]]; then
+  if [[ "$explicit_watch" -eq 0 ]]; then
+    watch_mode=1
+  fi
+  approve_mode=1
+  recheck_existing=1
+  if [[ "$explicit_emit" -eq 0 ]]; then
+    emit_dev_message=1
+  fi
+fi
 
 if ! [[ "$poll_interval" =~ ^[0-9]+$ ]]; then
   err "--interval must be a positive integer"
@@ -220,10 +250,15 @@ run_gate() {
     return 0
   fi
 
-  log "Running $gate gate: $cmd"
-  if (cd "$repo_root" && eval "$cmd") >"$log_file" 2>&1; then
+  log "Running $gate gate: $cmd (timeout ${gate_timeout}s)"
+  local exit_code=0
+  (cd "$repo_root" && timeout "${gate_timeout}" bash -c "$cmd") >"$log_file" 2>&1 || exit_code=$?
+  if [[ "$exit_code" -eq 0 ]]; then
     printf -v "$result_var" "PASS"
     printf -v "$reason_var" "$cmd"
+  elif [[ "$exit_code" -eq 124 ]]; then
+    printf -v "$result_var" "FAIL"
+    printf -v "$reason_var" "Timed out after ${gate_timeout}s ($cmd)"
   else
     printf -v "$result_var" "FAIL"
     printf -v "$reason_var" "$cmd (see $log_file)"
@@ -428,9 +463,15 @@ issue_has_qa_marker() {
     return 0
   fi
 
+  local status
+  status="$(extract_issue_field_value "$issue_file" "Status" | tr '[:lower:]' '[:upper:]')"
+  if [[ "$status" == "DEV_COMPLETE" ]]; then
+    return 0
+  fi
+
   local qa_state
   qa_state="$(extract_issue_field_value "$issue_file" "QA" | tr '[:lower:]' '[:upper:]')"
-  [[ "$qa_state" == "PENDING" ]]
+  [[ "$qa_state" == "PENDING" || "$qa_state" == "PENDING_MANUAL_REVIEW" || "$qa_state" == "IN_PROGRESS" || "$qa_state" == "BLOCKED" || "$qa_state" == "PASS" ]]
 }
 
 issue_has_ready_inbox_marker() {
@@ -456,6 +497,88 @@ issue_already_reviewed() {
   grep -Eq '^## QA Verification \(' "$issue_file"
 }
 
+file_age_minutes() {
+  local file="$1"
+  local file_epoch now_epoch
+  file_epoch="$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null || echo 0)"
+  now_epoch="$(date +%s)"
+  echo $(( (now_epoch - file_epoch) / 60 ))
+}
+
+last_qa_verification_epoch() {
+  local issue_file="$1"
+  local ts
+  ts="$(grep -oP '## QA Verification \(\K[0-9T:\-Z]+' "$issue_file" | tail -n1 || true)"
+  if [[ -z "$ts" ]]; then
+    echo 0
+    return
+  fi
+  date -d "$ts" +%s 2>/dev/null || echo 0
+}
+
+has_fresh_dev_evidence() {
+  local issue_file="$1"
+  local issue_id="$2"
+  local last_qa_epoch
+  last_qa_epoch="$(last_qa_verification_epoch "$issue_file")"
+  if [[ "$last_qa_epoch" -eq 0 ]]; then
+    return 0  # No prior QA verification, treat as fresh
+  fi
+
+  # Check inbox for new dev message referencing this issue
+  local msg_file
+  while IFS= read -r msg_file; do
+    [[ -z "$msg_file" ]] && continue
+    local msg_epoch
+    msg_epoch="$(stat -c '%Y' "$msg_file" 2>/dev/null || stat -f '%m' "$msg_file" 2>/dev/null || echo 0)"
+    if [[ "$msg_epoch" -gt "$last_qa_epoch" ]] && grep -q "$issue_id" "$msg_file" 2>/dev/null; then
+      return 0
+    fi
+  done < <(find "$inbox_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null || true)
+
+  # Check issue file for Resolution Notes / Dev Fix heading dated after last QA
+  local fix_date
+  fix_date="$(grep -A1 -E '^## (Resolution Notes|Dev Fix)' "$issue_file" | grep -oP '\d{4}-\d{2}-\d{2}' | tail -n1 || true)"
+  if [[ -n "$fix_date" ]]; then
+    local fix_epoch
+    fix_epoch="$(date -d "$fix_date" +%s 2>/dev/null || echo 0)"
+    if [[ "$fix_epoch" -gt "$last_qa_epoch" ]]; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+reset_stale_in_progress() {
+  local f issue_id qa_state age
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    qa_state="$(extract_issue_field_value "$f" "QA" | tr '[:lower:]' '[:upper:]')"
+    if [[ "$qa_state" == "IN_PROGRESS" ]]; then
+      age="$(file_age_minutes "$f")"
+      if [[ "$age" -ge "$stale_in_progress_minutes" ]]; then
+        issue_id="$(extract_issue_id_from_file "$f")"
+        log "Resetting stale IN_PROGRESS (${age}min old) to PENDING: $issue_id"
+        set_issue_qa_state "$f" "PENDING"
+      fi
+    fi
+  done < <(find "$issues_active_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null || true)
+}
+
+qa_state_priority() {
+  # Priority: 1=PASS (auto-heal), 2=PENDING_MANUAL_REVIEW, 3=BLOCKED, 4=PENDING/other
+  local issue_file="$1"
+  local qa_state
+  qa_state="$(extract_issue_field_value "$issue_file" "QA" | tr '[:lower:]' '[:upper:]')"
+  case "$qa_state" in
+    PASS) echo 1 ;;
+    PENDING_MANUAL_REVIEW) echo 2 ;;
+    BLOCKED) echo 3 ;;
+    *) echo 4 ;;
+  esac
+}
+
 discover_qa_ready_issue_files() {
   local issue_files=()
   local f
@@ -475,7 +598,20 @@ discover_qa_ready_issue_files() {
     done < <(grep -Eo '[A-Za-z]+-[A-Za-z]+-[0-9]+' "$msg_file" | sort -u || true)
   done < <(find "$inbox_dir" -maxdepth 1 -type f -name '*.md' -exec grep -Eil "$ready_regex" {} + 2>/dev/null || true)
 
-  printf '%s\n' "${issue_files[@]}" | awk 'NF' | sort -u
+  # Deduplicate, then sort by priority (PASS > PENDING_MANUAL_REVIEW > BLOCKED > PENDING)
+  local unique_files
+  unique_files="$(printf '%s\n' "${issue_files[@]}" | awk 'NF' | sort -u)"
+  if [[ -z "$unique_files" ]]; then
+    return 0
+  fi
+  local prioritized=()
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    local pri
+    pri="$(qa_state_priority "$f")"
+    prioritized+=("${pri}|${f}")
+  done <<<"$unique_files"
+  printf '%s\n' "${prioritized[@]}" | sort -t'|' -k1,1n | cut -d'|' -f2-
 }
 
 evaluate_issue() {
@@ -516,6 +652,7 @@ evaluate_issue() {
     fi
   fi
 
+  # Collect automated blockers only (manual review is NOT a blocker)
   local blockers=()
   if [[ "$typecheck_result" != "PASS" ]]; then
     blockers+=("Typecheck gate: $typecheck_reason")
@@ -529,22 +666,28 @@ evaluate_issue() {
   if [[ "$uat_result" != "PASS" ]]; then
     blockers+=("UAT gate: $uat_reason")
   fi
-  if [[ "$manual_ok" -ne 1 ]]; then
-    blockers+=("Manual QA review not confirmed. Re-run with --manual-ok after completing code review checklist.")
-  fi
 
-  local verdict="Blocked"
-  local qa_state="BLOCKED"
-  local recommendations="Address failed gates and attach evidence in issue QA section."
-  local unblock_note="All required QA gates pass and manual review is completed."
-  if [[ "${#blockers[@]}" -eq 0 ]]; then
+  # Three-way verdict: BLOCKED / PASS / PENDING_MANUAL_REVIEW
+  local verdict=""
+  local qa_state=""
+  local recommendations=""
+  local unblock_note=""
+
+  if [[ "${#blockers[@]}" -gt 0 ]]; then
+    verdict="Blocked"
+    qa_state="BLOCKED"
+    recommendations="$(printf '%s; ' "${blockers[@]}" | sed 's/; $//')"
+    unblock_note="$(printf '%s; ' "${blockers[@]}" | sed 's/; $//')"
+  elif [[ "$manual_ok" -eq 1 ]]; then
     verdict="Pass"
     qa_state="PASS"
     recommendations="No blockers identified. Keep tests and evidence attached to issue."
     unblock_note="N/A"
   else
-    recommendations="$(printf '%s; ' "${blockers[@]}" | sed 's/; $//')"
-    unblock_note="$(printf '%s; ' "${blockers[@]}" | sed 's/; $//')"
+    verdict="Pending Manual Review"
+    qa_state="PENDING_MANUAL_REVIEW"
+    recommendations="All automated gates passed. Awaiting manual code review (--manual-ok)."
+    unblock_note="Complete manual review checklist and re-run with --manual-ok."
   fi
 
   set_issue_qa_state "$issue_file" "$qa_state"
@@ -553,7 +696,8 @@ evaluate_issue() {
     "$typecheck_result" "$unit_result" "$integration_result" "$uat_result" \
     "$coverage_note" "$manual_note" "$unblock_note" "$recommendations"
 
-  if [[ "$emit_dev_message" -eq 1 ]]; then
+  # PENDING_MANUAL_REVIEW suppresses dev notification regardless of emit_dev_message
+  if [[ "$emit_dev_message" -eq 1 && "$qa_state" != "PENDING_MANUAL_REVIEW" ]]; then
     local feedback_file="$inbox_dir/$(day_stamp)_$(slugify "${issue_id}_qa_${verdict}")_$(date -u +%H%M%S).md"
     emit_dev_feedback_message "$issue_id" "$verdict" "$qa_state" "$recommendations" "$unblock_note" "$feedback_file"
     log "Wrote QA feedback message: $feedback_file"
@@ -571,13 +715,40 @@ evaluate_issue() {
     log "Approved and completed $issue_id"
   elif [[ "$verdict" == "Pass" ]]; then
     log "Issue $issue_id passed QA gates. Re-run with --approve to complete."
+  elif [[ "$qa_state" == "PENDING_MANUAL_REVIEW" ]]; then
+    log "Issue $issue_id: all automated gates passed. Awaiting manual review (--manual-ok to promote)."
   else
     log "Issue $issue_id is BLOCKED. See appended QA Verification section for details."
   fi
 }
 
+completion_sweep() {
+  # Safety net: any QA: PASS issue still in active/ gets completed and moved
+  local f issue_id qa_state
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    qa_state="$(extract_issue_field_value "$f" "QA" | tr '[:lower:]' '[:upper:]')"
+    if [[ "$qa_state" == "PASS" && "$approve_mode" -eq 1 ]]; then
+      issue_id="$(extract_issue_id_from_file "$f")"
+      log "Completion sweep: moving PASS issue $issue_id to completed/"
+      set_issue_complete_status "$f"
+      if [[ "$dry_run" -eq 0 ]]; then
+        mv "$f" "$issues_completed_dir/"
+      fi
+      if [[ "$emit_dev_message" -eq 1 ]]; then
+        local feedback_file="$inbox_dir/$(day_stamp)_$(slugify "${issue_id}_qa_Pass")_$(date -u +%H%M%S).md"
+        emit_dev_feedback_message "$issue_id" "Pass" "PASS" "Completed via sweep." "N/A" "$feedback_file"
+      fi
+      move_related_messages "$issue_id"
+    fi
+  done < <(find "$issues_active_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null || true)
+}
+
 process_cycle() {
   log "Polling QA-ready items for team=$team_id role=$role_id project=$project_name"
+
+  # Crash recovery: reset stale IN_PROGRESS issues to PENDING
+  reset_stale_in_progress
 
   local inbox_hits
   inbox_hits="$(find "$inbox_dir" -maxdepth 1 -type f -name '*.md' -exec grep -Eil "$ready_regex" {} + 2>/dev/null || true)"
@@ -614,13 +785,89 @@ process_cycle() {
 
     local qa_state
     qa_state="$(extract_issue_field_value "$candidate" "QA" | tr '[:lower:]' '[:upper:]')"
+
+    # PASS in active/ — auto-heal: complete immediately without running gates
+    if [[ "$qa_state" == "PASS" && "$approve_mode" -eq 1 ]]; then
+      log "Auto-healing $issue_id: QA PASS still in active/, completing now."
+      set_issue_complete_status "$candidate"
+      if [[ "$dry_run" -eq 0 ]]; then
+        mv "$candidate" "$issues_completed_dir/"
+      fi
+      move_related_messages "$issue_id"
+      continue
+    fi
+
+    # PENDING_MANUAL_REVIEW — skip gates, only promote if --manual-ok
+    if [[ "$qa_state" == "PENDING_MANUAL_REVIEW" ]]; then
+      if [[ "$manual_ok" -eq 1 ]]; then
+        log "Promoting $issue_id: PENDING_MANUAL_REVIEW → PASS (--manual-ok confirmed)."
+        local promote_manual_note="Manual review confirmed (efficiency, accuracy, duplication, security, ADR conformance)."
+        if [[ -n "$manual_notes" ]]; then
+          promote_manual_note="$manual_notes"
+        fi
+        set_issue_qa_state "$candidate" "PASS"
+        append_qa_verification_section \
+          "$candidate" "$issue_id" "Pass" \
+          "N/A (gates skipped — prior cycle passed)" "N/A" "N/A" "N/A" \
+          "See prior verification cycle." "$promote_manual_note" "N/A" \
+          "Manual review promotion via --manual-ok."
+        if [[ "$approve_mode" -eq 1 ]]; then
+          set_issue_complete_status "$candidate"
+          if [[ "$dry_run" -eq 0 ]]; then
+            mv "$candidate" "$issues_completed_dir/"
+          fi
+          move_related_messages "$issue_id"
+          log "Completed $issue_id"
+        fi
+        if [[ "$emit_dev_message" -eq 1 ]]; then
+          local feedback_file="$inbox_dir/$(day_stamp)_$(slugify "${issue_id}_qa_Pass")_$(date -u +%H%M%S).md"
+          emit_dev_feedback_message "$issue_id" "Pass" "PASS" "Manual review promotion via --manual-ok." "N/A" "$feedback_file"
+        fi
+      else
+        log "Skipping $issue_id (awaiting manual review, use --manual-ok to promote)."
+      fi
+      continue
+    fi
+
+    # BLOCKED — only recheck with fresh evidence or stale-recheck threshold
+    if [[ "$qa_state" == "BLOCKED" ]]; then
+      local should_recheck=0
+      if has_fresh_dev_evidence "$candidate" "$issue_id"; then
+        log "Fresh dev evidence found for BLOCKED $issue_id — re-evaluating."
+        should_recheck=1
+      elif [[ "$stale_recheck" -eq 1 ]]; then
+        local last_qa_epoch
+        last_qa_epoch="$(last_qa_verification_epoch "$candidate")"
+        local now_epoch
+        now_epoch="$(date +%s)"
+        local hours_since=$(( (now_epoch - last_qa_epoch) / 3600 ))
+        if [[ "$hours_since" -ge "$stale_recheck_hours" ]]; then
+          log "Stale-recheck threshold (${stale_recheck_hours}h) reached for BLOCKED $issue_id — re-evaluating."
+          should_recheck=1
+        fi
+      fi
+      if [[ "$should_recheck" -eq 0 ]]; then
+        log "Skipping BLOCKED $issue_id (no fresh evidence, stale-recheck not reached)."
+        continue
+      fi
+    fi
+
+    # Layer 1: recheck_existing gate for previously reviewed issues
     if [[ "$recheck_existing" -eq 0 ]] && issue_already_reviewed "$candidate" && [[ "$qa_state" != "PENDING" ]]; then
       log "Skipping $issue_id (already has QA Verification; use --recheck-existing to force)."
       continue
     fi
 
-    evaluate_issue "$candidate" "$issue_id"
+    # Run full evaluation with crash-safe error handling
+    evaluate_issue "$candidate" "$issue_id" || {
+      log "evaluate_issue failed for $issue_id — will retry next cycle"
+      set_issue_qa_state "$candidate" "PENDING"
+      continue
+    }
   done <<<"$candidate_files"
+
+  # Completion invariant sweep: no QA: PASS should remain in active/
+  completion_sweep
 }
 
 main() {

@@ -31,7 +31,7 @@
 
 ## QA Verification Evidence
 
-- QA Verdict: Pass | Pass with Conditions | Blocked | Need More Info
+- QA Verdict: Pass | Pass with Conditions | Pending Manual Review | Blocked | Need More Info
 - Coverage Assessment: (map acceptance criteria to tests; list missing tests or "none")
 - Manual Review: efficiency | accuracy | non-duplication | security | ADR conformance
 - Unblock Criteria (required if blocked):
@@ -49,6 +49,6 @@
 **QA state mapping:**
 - `QA: PENDING` -> waiting for QA start or dev re-fix handoff
 - `QA: IN_PROGRESS` -> QA currently verifying
-- `QA: PENDING_MANUAL_REVIEW` -> automated checks passed; awaiting manual QA review
+- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action)
 - `QA: BLOCKED` -> QA findings remain; dev action required
 - `QA: PASS` -> QA accepted; issue should be completed/moved

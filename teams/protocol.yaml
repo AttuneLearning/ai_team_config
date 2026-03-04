@@ -41,9 +41,10 @@ issues:
     transition_rules:
       - Dev sets QA=PENDING for QA handoff and after re-fix.
       - QA sets QA=IN_PROGRESS when verification starts.
-      - QA sets QA=PENDING_MANUAL_REVIEW after automated checks pass but manual review is still needed.
-      - QA sets QA=BLOCKED when findings remain.
+      - "QA sets QA=PENDING_MANUAL_REVIEW when all automated gates pass but manual review is not yet complete. Not a dev blocker."
+      - QA sets QA=BLOCKED when automated gates fail or manual review finds critical issues.
       - QA sets QA=PASS only when approving completion.
+      - "Crash recovery: QA resets stale IN_PROGRESS → PENDING when previous run exited abnormally."
   naming: "{ISSUE_PREFIX}-{NNN}_{brief_description}.md"
 
 # -----------------------------------------------------------------------------
@@ -145,7 +146,7 @@ issue_lifecycle:
       description: "Set Status: COMPLETE, move issue from active/ to completed/"
       owner: "qa sub-team ONLY"
       prerequisite: "QA Verification must pass"
-      enforced_by: "ai_team_config/scripts/qa_poll_cycle.sh --approve"
+      enforced_by: "ai_team_config/scripts/qa_poll_cycle.sh --autonomous (automatic completion on QA PASS)"
     comms_response:
       order: 6
       description: "Send response to originating team if cross-team work"

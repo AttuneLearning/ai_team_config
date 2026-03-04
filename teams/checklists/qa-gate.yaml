@@ -23,12 +23,26 @@ qa_state:
     - PENDING_MANUAL_REVIEW
     - BLOCKED
     - PASS
+  transitions:
+    # Happy path: PENDING → IN_PROGRESS → PENDING_MANUAL_REVIEW → PASS
+    # Failure path: PENDING → IN_PROGRESS → BLOCKED → (dev fix) → PENDING → ...
+    PENDING: [IN_PROGRESS]
+    IN_PROGRESS: [PENDING_MANUAL_REVIEW, BLOCKED, PENDING]  # PENDING = crash/error recovery
+    PENDING_MANUAL_REVIEW: [PASS, BLOCKED]
+    BLOCKED: [PENDING]  # dev re-fix resets to PENDING
+    PASS: []             # terminal
   rules:
     - Dev sets QA=PENDING when requesting QA or after re-fix.
     - QA sets QA=IN_PROGRESS when verification begins.
-    - QA sets QA=PENDING_MANUAL_REVIEW after automated checks pass; signals manual review needed.
-    - QA sets QA=BLOCKED when findings remain.
+    - QA sets QA=PENDING_MANUAL_REVIEW when ALL automated gates pass but manual review has not been completed. No dev action required — this is QA's responsibility.
+    - QA sets QA=BLOCKED when automated gates fail OR manual review finds critical issues. Dev must investigate and fix.
     - QA sets QA=PASS only when completion criteria pass and issue is moved to completed/.
+  dev_signal:
+    PENDING: "Awaiting QA pickup"
+    IN_PROGRESS: "QA actively reviewing — no action needed"
+    PENDING_MANUAL_REVIEW: "Automated gates passed — awaiting QA manual review. NO dev action needed."
+    BLOCKED: "Real failures found — dev must investigate and fix"
+    PASS: "QA approved — done"
 
 # ---------------------------------------------------------------------------
 # Phase 0: Comms Poll & Triage
@@ -42,6 +56,7 @@ phase_0_comms:
     - Read {team}/issues/active/ for issues with dev resolution notes
     - Parse issue QA field and include QA=PENDING and QA=PENDING_MANUAL_REVIEW items in candidate set
     - Check for stale blocks (QA=BLOCKED with last verification >12h ago) — auto-include for recheck
+    - Check for stale manual reviews (QA=PENDING_MANUAL_REVIEW >12h ago) — auto-include for manual review
     - Classify each inbox message (qa_review_request, dev_refix, cross_team_response, status_update)
     - Match dev resolution notes and re-fix messages to active issues
     - Pick next issue (re-checks first, then new handoffs by ID order)
@@ -70,7 +85,7 @@ phase_1_entry:
     - If re-checking after rejection, confirm dev addressed specific QA findings
     - If entry criteria not met, emit Need More Info verdict and notify dev
   entry_criteria:
-    - Issue file exists under issues/active with Status ACTIVE
+    - Issue file exists under issues/active with Status ACTIVE or DEV_COMPLETE
     - Issue includes QA field with value PENDING, PENDING_MANUAL_REVIEW, or BLOCKED with new dev evidence
     - Dev resolution notes are present
     - Acceptance criteria are defined
@@ -99,7 +114,8 @@ phase_2_automated:
       criteria: all pass (if UAT specs exist for the issue)
     targeted_tests:
       criteria: run tests specifically covering the changed files/flows
-  on_failure: record failures as evidence — do not skip to manual review
+  on_all_pass: set QA=PENDING_MANUAL_REVIEW if manual review is not being performed in this run
+  on_failure: record failures as evidence — do not skip to manual review. Set QA=BLOCKED.
 
 # ---------------------------------------------------------------------------
 # Phase 3: Manual Review
@@ -134,8 +150,16 @@ phase_4_verdict:
       action: proceed to Phase 5 (completion)
     pass_with_conditions:
       action: keep in active/, document conditions, notify dev
+    pending_manual_review:
+      action: keep in active/, set QA=PENDING_MANUAL_REVIEW. Do NOT notify dev — no dev action needed.
+      when: all automated gates pass but manual review was not completed in this run
+      note: >
+        This is NOT a failure state. It signals that automated verification
+        succeeded and the issue is waiting for QA to complete manual review.
+        Dev should ignore issues in this state.
     blocked:
       action: keep in active/, notify dev with findings
+      when: automated gate(s) failed OR manual review found critical issues requiring code changes
       required_evidence:
         - issue_reference
         - file_or_route_reference
@@ -153,7 +177,7 @@ phase_4_verdict:
   steps:
     - Set issue QA field to IN_PROGRESS at verification start
     - Append QA verdict and findings to the issue file
-    - Update issue QA field based on verdict (PASS, BLOCKED, or IN_PROGRESS)
+    - Update issue QA field based on verdict (PASS, PENDING_MANUAL_REVIEW, BLOCKED, or IN_PROGRESS)
     - Send findings message to {team}/inbox/
     - If cross-team blocker, send evidence to {other_team}/inbox/
 
@@ -184,6 +208,7 @@ phase_6_iterate:
     Pick the next QA-ready item and begin Phase 1.
   outcomes:
     pass: issue moved to completed/ — done
+    pending_manual_review: automated gates passed — QA must complete manual review on next iteration
     blocked: send findings to dev, return to Phase 0 when dev responds
     need_more_info: send questions to dev, return to Phase 0 when dev responds
   loop: phase_0_comms
@@ -194,6 +219,19 @@ phase_6_iterate:
 # ---------------------------------------------------------------------------
 # Automation (team-specific commands)
 # ---------------------------------------------------------------------------
+
+autonomous_mode:
+  description: >
+    When --autonomous is passed, the script sets watch_mode=1, approve_mode=1,
+    recheck_existing=1, and emit_dev_message=1. Explicit flags always override
+    these defaults. Use --autonomous --manual-ok for fully unattended operation.
+  implied_flags:
+    watch_mode: 1
+    approve_mode: 1
+    recheck_existing: 1
+    emit_dev_message: 1
+  does_not_imply:
+    - manual_ok  # Manual review confirmation remains explicit
 
 automation:
   default_gate_timeout_seconds: 120
