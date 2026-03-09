@@ -26,6 +26,8 @@ Options:
   --no-emit-dev-message     Do not write QA pass/blocked messages
   --stale-recheck-hours N   Re-run BLOCKED issues after N hours even without fresh evidence (default: 12)
   --no-stale-recheck        Disable time-based recheck; require fresh dev evidence only
+  --pending-manual-review-sla-minutes N
+                            Guardrail threshold for stale QA=PENDING_MANUAL_REVIEW backlog (default: 30)
   --gate-timeout SECONDS    Per-gate execution timeout (default: 600)
   --dry-run                 Do not modify issue/message files
   --help                    Show this help
@@ -70,6 +72,7 @@ gate_timeout=600
 stale_recheck_hours=12
 stale_recheck=1
 stale_in_progress_minutes=60
+pending_manual_review_sla_minutes=30
 
 # Track which flags were explicitly set to implement flag precedence
 explicit_watch=0
@@ -94,6 +97,7 @@ while [[ $# -gt 0 ]]; do
     --no-emit-dev-message) emit_dev_message=0; explicit_emit=1; shift 1 ;;
     --stale-recheck-hours) stale_recheck_hours="$2"; shift 2 ;;
     --no-stale-recheck) stale_recheck=0; shift 1 ;;
+    --pending-manual-review-sla-minutes) pending_manual_review_sla_minutes="$2"; shift 2 ;;
     --gate-timeout) gate_timeout="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift 1 ;;
     --help|-h) usage; exit 0 ;;
@@ -120,6 +124,11 @@ fi
 
 if ! [[ "$idle_stop_seconds" =~ ^[0-9]+$ ]]; then
   err "--idle-stop-seconds must be a non-negative integer"
+  exit 1
+fi
+
+if ! [[ "$pending_manual_review_sla_minutes" =~ ^[0-9]+$ ]]; then
+  err "--pending-manual-review-sla-minutes must be a non-negative integer"
   exit 1
 fi
 
@@ -531,6 +540,11 @@ has_fresh_dev_evidence() {
     [[ -z "$msg_file" ]] && continue
     local msg_epoch
     msg_epoch="$(stat -c '%Y' "$msg_file" 2>/dev/null || stat -f '%m' "$msg_file" 2>/dev/null || echo 0)"
+    local msg_from
+    msg_from="$(grep -m1 -E '^\*\*From:\*\* ' "$msg_file" | sed -E 's/^\*\*From:\*\* //')"
+    if [[ "$msg_from" == "$from_header" ]]; then
+      continue
+    fi
     if [[ "$msg_epoch" -gt "$last_qa_epoch" ]] && grep -q "$issue_id" "$msg_file" 2>/dev/null; then
       return 0
     fi
@@ -577,6 +591,20 @@ qa_state_priority() {
     BLOCKED) echo 3 ;;
     *) echo 4 ;;
   esac
+}
+
+stale_pending_manual_review_files() {
+  local f qa_state age
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    qa_state="$(extract_issue_field_value "$f" "QA" | tr '[:lower:]' '[:upper:]')"
+    if [[ "$qa_state" == "PENDING_MANUAL_REVIEW" ]]; then
+      age="$(file_age_minutes "$f")"
+      if [[ "$age" -ge "$pending_manual_review_sla_minutes" ]]; then
+        printf '%s\n' "$f"
+      fi
+    fi
+  done < <(find "$issues_active_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null || true)
 }
 
 discover_qa_ready_issue_files() {
@@ -769,6 +797,16 @@ process_cycle() {
     return 0
   fi
 
+  local stale_pending_files stale_pending_issue_ids stale_pending_backlog=0
+  stale_pending_files="$(stale_pending_manual_review_files || true)"
+  if [[ -n "$stale_pending_files" ]]; then
+    stale_pending_backlog=1
+    stale_pending_issue_ids="$(while IFS= read -r f; do
+      [[ -n "$f" ]] && extract_issue_id_from_file "$f"
+    done <<<"$stale_pending_files" | paste -sd ', ' -)"
+    log "Autonomous guardrail: stale PENDING_MANUAL_REVIEW backlog detected (${pending_manual_review_sla_minutes}m SLA): ${stale_pending_issue_ids}"
+  fi
+
   local candidate
   while IFS= read -r candidate; do
     [[ -z "$candidate" ]] && continue
@@ -785,6 +823,13 @@ process_cycle() {
 
     local qa_state
     qa_state="$(extract_issue_field_value "$candidate" "QA" | tr '[:lower:]' '[:upper:]')"
+
+    if [[ "$autonomous" -eq 1 && "$manual_ok" -eq 0 && "$stale_pending_backlog" -eq 1 && -z "$issue_filter" ]]; then
+      if [[ "$qa_state" != "PASS" && "$qa_state" != "PENDING_MANUAL_REVIEW" ]]; then
+        log "Guardrail deferral: skipping $issue_id while stale manual-review backlog remains unresolved."
+        continue
+      fi
+    fi
 
     # PASS in active/ — auto-heal: complete immediately without running gates
     if [[ "$qa_state" == "PASS" && "$approve_mode" -eq 1 ]]; then

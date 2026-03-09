@@ -35,6 +35,7 @@ qa_state:
     - Dev sets QA=PENDING when requesting QA or after re-fix.
     - QA sets QA=IN_PROGRESS when verification begins.
     - QA sets QA=PENDING_MANUAL_REVIEW when ALL automated gates pass but manual review has not been completed. No dev action required — this is QA's responsibility.
+    - QA must treat PENDING_MANUAL_REVIEW as a temporary checkpoint and resolve it to PASS or BLOCKED promptly.
     - QA sets QA=BLOCKED when automated gates fail OR manual review finds critical issues. Dev must investigate and fix.
     - QA sets QA=PASS only when completion criteria pass and issue is moved to completed/.
   dev_signal:
@@ -61,7 +62,8 @@ phase_0_comms:
     - List and READ CONTENTS of every file in {team}/issues/active/
     - Parse issue QA field and include QA=PENDING and QA=PENDING_MANUAL_REVIEW items in candidate set
     - Check for stale blocks (QA=BLOCKED with last verification >12h ago) — auto-include for recheck
-    - Check for stale manual reviews (QA=PENDING_MANUAL_REVIEW >12h ago) — auto-include for manual review
+    - Check for stale manual reviews (QA=PENDING_MANUAL_REVIEW >30m or older than one poll interval) — auto-include for manual review
+    - In autonomous mode, stale PENDING_MANUAL_REVIEW backlog blocks lower-priority new gate work until the backlog is resolved
     - Do NOT dismiss issues based on metadata — read and assess each one
 
     # ---------------------------------------------------------------
@@ -137,7 +139,7 @@ phase_2_automated:
       criteria: all pass (if UAT specs exist for the issue)
     targeted_tests:
       criteria: run tests specifically covering the changed files/flows
-  on_all_pass: set QA=PENDING_MANUAL_REVIEW if manual review is not being performed in this run
+  on_all_pass: set QA=PENDING_MANUAL_REVIEW only as a temporary checkpoint if manual review is not being performed in this run
   on_failure: record failures as evidence — do not skip to manual review. Set QA=BLOCKED.
 
 # ---------------------------------------------------------------------------
@@ -179,7 +181,8 @@ phase_4_verdict:
       note: >
         This is NOT a failure state. It signals that automated verification
         succeeded and the issue is waiting for QA to complete manual review.
-        Dev should ignore issues in this state.
+        Dev should ignore issues in this state. Autonomous QA should treat this
+        as a short-lived checkpoint, not a backlog bucket.
     blocked:
       action: keep in active/, notify dev with findings
       when: automated gate(s) failed OR manual review found critical issues requiring code changes
@@ -231,7 +234,7 @@ phase_6_iterate:
     Pick the next QA-ready item and begin Phase 1.
   outcomes:
     pass: issue moved to completed/ — done
-    pending_manual_review: automated gates passed — QA must complete manual review on next iteration
+    pending_manual_review: automated gates passed — QA must complete manual review on next iteration before lower-priority new work
     blocked: send findings to dev, return to Phase 0 when dev responds
     need_more_info: send questions to dev, return to Phase 0 when dev responds
   loop: phase_0_comms
@@ -247,7 +250,8 @@ autonomous_mode:
   description: >
     When --autonomous is passed, the script sets watch_mode=1, approve_mode=1,
     recheck_existing=1, and emit_dev_message=1. Explicit flags always override
-    these defaults. Use --autonomous --manual-ok for fully unattended operation.
+    these defaults. Autonomous QA must not allow stale PENDING_MANUAL_REVIEW
+    backlog to grow unchecked.
   implied_flags:
     watch_mode: 1
     approve_mode: 1
@@ -255,6 +259,10 @@ autonomous_mode:
     emit_dev_message: 1
   does_not_imply:
     - manual_ok  # Manual review confirmation remains explicit
+  guardrails:
+    pending_manual_review_sla_minutes: 30
+    defer_lower_priority_work_when_stale_pending_exists: true
+    manual_ok_requires_actual_review: true
 
 automation:
   default_gate_timeout_seconds: 600

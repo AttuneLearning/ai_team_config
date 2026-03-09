@@ -112,6 +112,21 @@ Execute the appropriate lifecycle for your role:
 Process ALL actionable items found in the scan before looping back.
 Do not loop back with unprocessed work sitting in the triage table.
 
+### QA Guardrail
+
+For QA roles, `PENDING_MANUAL_REVIEW` is a temporary checkpoint, not an end
+state.
+
+- In autonomous QA, manual review is part of the same polling lifecycle.
+- Do NOT keep running new gate passes while an older `PENDING_MANUAL_REVIEW`
+  backlog is sitting unresolved.
+- If any `PENDING_MANUAL_REVIEW` item is older than one poll iteration or
+  30 minutes, resolve that backlog first by converting each item to `PASS` or
+  `BLOCKED`.
+- If the manual review cannot be completed in the current iteration, report the
+  item explicitly in the triage summary as deferred QA work. Do not silently
+  leave it parked.
+
 ---
 
 ## Step 4: CLEANUP
@@ -179,6 +194,10 @@ Reason for exit: 30-minute idle timeout / no remaining work
 ## Autonomous Rules
 
 - **Do NOT pause to ask the user** before continuing to the next issue, commit, or poll cycle
+- **QA manual review is required work**: in autonomous QA, do not treat
+  `PENDING_MANUAL_REVIEW` as "done for now"
+- **Do NOT widen stale QA backlog**: if stale `PENDING_MANUAL_REVIEW` items
+  exist, resolve them before taking on lower-priority new gate work
 - **QA findings**: Fix immediately and re-handoff without asking
 - **Commits**: Commit completed work as phases finish — do not ask permission
 - **Handoff messages**: Always send QA handoff messages immediately after DEV_COMPLETE

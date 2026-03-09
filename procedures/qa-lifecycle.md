@@ -37,6 +37,9 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 5. Check for stale blocks: if an issue has `QA: BLOCKED` and the last QA
    verification is older than 12 hours, include it in the candidate set
    for automatic re-check
+6. Check for stale manual review backlog: if an issue has
+   `QA: PENDING_MANUAL_REVIEW` older than one poll interval or 30 minutes,
+   treat it as a guardrail violation and prioritize it ahead of new gate work
 6. Classify inbox messages:
 
 | Message Type | Action |
@@ -45,8 +48,9 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 | Dev re-fix after rejection | → Phase 1 (re-validate) |
 | Cross-team status update | → Acknowledge |
 
-7. Prioritize: `PENDING_MANUAL_REVIEW` issues first (already passed automated gates),
-   then re-fixes of previously blocked issues, then new handoffs
+7. Prioritize: stale `PENDING_MANUAL_REVIEW` issues first, then fresh
+   `PENDING_MANUAL_REVIEW` issues, then re-fixes of previously blocked issues,
+   then new handoffs
 
 ---
 
@@ -91,9 +95,10 @@ Run the automated test gates. All must pass for the issue to proceed.
 
 **Per-check timeout:** As configured in role yaml (default 120s).
 
-**On all pass (no manual review):** Set `QA: PENDING_MANUAL_REVIEW`. Do NOT send
-a message to Dev's inbox — this is not a dev blocker. Move to Phase 4 with
-"Pending Manual Review" verdict.
+**On all pass (manual review not yet completed in this run):** Set
+`QA: PENDING_MANUAL_REVIEW`. Do NOT send a message to Dev's inbox — this is not
+a dev blocker. Move immediately to Phase 3 on the same polling lifecycle when
+possible. This state should be short-lived.
 
 **On failure:** Record which gate failed. Move to Phase 4 with "Blocked" verdict.
 
@@ -118,6 +123,13 @@ Human-judgment checks that automation cannot catch:
 - If tests are missing, document which criteria need test coverage
 - Include the acceptance-criteria-to-test mapping in your verdict
 
+**Autonomous guardrail:**
+- In autonomous QA, Phase 3 is required follow-through work for any issue in
+  `PENDING_MANUAL_REVIEW`.
+- Do not keep cycling new gate runs while stale pending manual reviews remain.
+- End Phase 3 with a real verdict: `PASS`, `PASS WITH CONDITIONS`, `BLOCKED`,
+  or `NEED MORE INFO`.
+
 ---
 
 ## Phase 4: Verdict & Evidence
@@ -128,13 +140,14 @@ Emit one of four verdicts:
 |---------|------|----------|-----------|
 | **Pass** | All gates green, manual review clean | `PASS` | → Phase 5 (complete) |
 | **Pass with Conditions** | Minor issues, non-blocking | `PASS` | → Phase 5 with notes |
-| **Pending Manual Review** | All automated gates pass, manual review not done | `PENDING_MANUAL_REVIEW` | → Phase 6 (QA picks up on next iteration) |
+| **Pending Manual Review** | All automated gates pass, but the current iteration could not finish manual review | `PENDING_MANUAL_REVIEW` | → Phase 6 (QA must pick this up before lower-priority new work) |
 | **Blocked** | Automated gate failed OR critical manual finding | `BLOCKED` | → Phase 6 (dev must fix) |
 | **Need More Info** | Cannot determine pass/fail | `BLOCKED` | → Phase 6 (iterate) |
 
 **IMPORTANT:** `PENDING_MANUAL_REVIEW` is NOT a dev blocker. Do NOT send findings
 to Dev's inbox for this verdict. Dev should ignore issues in this state — they are
-QA's responsibility to complete.
+QA's responsibility to complete. It is also not a resting state for autonomous
+polling; QA must convert it to `PASS` or `BLOCKED` promptly.
 
 **Required evidence for every verdict:**
 - Issue reference (ISS-xxx)
@@ -173,6 +186,8 @@ QA's responsibility to complete.
 1. Issue stays in `active/` with `QA: PENDING_MANUAL_REVIEW`
 2. Do NOT send a message to Dev — no dev action is needed
 3. QA picks this up on the next iteration (skip automated gates, go directly to Phase 3)
+4. **Guardrail:** if the issue remains `PENDING_MANUAL_REVIEW` beyond one poll
+   interval or 30 minutes, resolve it before running lower-priority new QA work
 
 ### Blocked or Need More Info verdicts:
 
@@ -195,18 +210,21 @@ no unprocessed messages remain in inbox.
 The QA polling script supports `--autonomous` mode for unattended operation:
 
 ```bash
-# Fully autonomous (recommended for unattended runs)
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+# Continuous autonomous polling with backlog guardrails
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --no-stale-recheck
 
-# Two-pass mode (manual review separated)
-# Pass 1: Run gates, issues reaching all-pass get PENDING_MANUAL_REVIEW
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once
-# Pass 2: After operator reviews, promote to PASS and complete
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once
+# Single issue promotion only after actual manual review is complete
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --issue UI-ISS-123 --once
 ```
 
 `--autonomous` implies `--watch --approve --recheck-existing --emit-dev-message`.
 Explicit flags (e.g. `--once`, `--no-emit-dev-message`) override these defaults.
+
+Guardrails for autonomous QA:
+- Do not use bare `--manual-ok` to bulk-promote a backlog.
+- Treat `PENDING_MANUAL_REVIEW` as an interrupted checkpoint, not a stable queue.
+- When stale pending manual review backlog exists, finish that manual review
+  work before widening the queue with lower-priority new gate runs.
 
 See `dev_communication/shared/specs/POLLING_AUTONOMOUS_QA_REVISION.md` for full
 specification.
