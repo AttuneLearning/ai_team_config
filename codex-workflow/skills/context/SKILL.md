@@ -1,1 +1,0 @@
-../../../skills/context/SKILL.md

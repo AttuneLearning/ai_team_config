@@ -49,6 +49,6 @@
 **QA state mapping:**
 - `QA: PENDING` -> waiting for QA start or dev re-fix handoff
 - `QA: IN_PROGRESS` -> QA currently verifying
-- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action)
+- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action, temporary QA-only checkpoint)
 - `QA: BLOCKED` -> QA findings remain; dev action required
 - `QA: PASS` -> QA accepted; issue should be completed/moved

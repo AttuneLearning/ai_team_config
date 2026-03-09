@@ -13,7 +13,7 @@ Use this checklist after polling for new QA-ready work.
 - Every issue must include `QA: PENDING | IN_PROGRESS | PENDING_MANUAL_REVIEW | BLOCKED | PASS`.
 - Dev sets `QA: PENDING` for initial QA handoff and after re-fix.
 - QA sets `QA: IN_PROGRESS` when validation starts.
-- QA sets `QA: PENDING_MANUAL_REVIEW` when all automated gates pass but manual review is not yet complete (not a dev blocker).
+- QA sets `QA: PENDING_MANUAL_REVIEW` when all automated gates pass but manual review is not yet complete (not a dev blocker, temporary QA-only checkpoint).
 - QA sets `QA: BLOCKED` when findings remain.
 - QA sets `QA: PASS` before completion (`Status: COMPLETE` + move to `completed/`).
 
@@ -83,22 +83,29 @@ ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
 The script supports `--autonomous` which implies `--watch --approve --recheck-existing --emit-dev-message`.
 Explicit flags always override autonomous defaults.
 
-Fully autonomous (recommended):
+Continuous autonomous polling with backlog guardrails:
 
 ```bash
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --no-stale-recheck
 ```
 
-Two-pass mode (manual review separated):
+Per-issue promotion after actual manual review:
 
 ```bash
-# Pass 1: Run gates, PENDING_MANUAL_REVIEW for passing issues
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --issue API-ISS-114 --once
+```
+
+Gates-only one-shot:
+
+```bash
 ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once
-
-# Pass 2: Promote after manual review
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once
 ```
+
+Guardrail: do not use bare `--autonomous --manual-ok` to bulk-promote a stale
+`PENDING_MANUAL_REVIEW` backlog.
 
 Note: With `--autonomous`, the script handles gate timeouts (120s default), crash
 recovery (stale IN_PROGRESS reset), freshness checks for BLOCKED issues, and
-completion sweep (no QA: PASS issue remains in active/ after cycle end).
+completion sweep (no QA: PASS issue remains in active/ after cycle end). It
+also defers lower-priority new gate work when stale `PENDING_MANUAL_REVIEW`
+backlog exists.

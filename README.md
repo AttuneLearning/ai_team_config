@@ -127,22 +127,21 @@ Agent-runnable QA cycle script:
 Issue QA state field (required):
 - `QA: PENDING` -> awaiting QA start or dev re-fix recheck
 - `QA: IN_PROGRESS` -> QA verification running
-- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action)
+- `QA: PENDING_MANUAL_REVIEW` -> automated gates passed; awaiting QA manual review (no dev action, temporary QA-only checkpoint)
 - `QA: BLOCKED` -> QA findings remain
 - `QA: PASS` -> QA accepted; required before `Status: COMPLETE`
 
 Examples:
 
 ```bash
-# Fully autonomous (recommended for unattended runs)
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok
+# Continuous autonomous polling with backlog guardrails
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --no-stale-recheck
 
-# Two-pass mode (manual review separated)
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once        # gates only
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --once  # promote
-
-# Single issue evaluation
+# Per-issue promotion after actual manual review
 ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --issue API-ISS-114 --once
+
+# Gates-only one-shot
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous --once
 
 # Legacy one-shot (still works)
 ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
@@ -150,6 +149,9 @@ ai_team_config/scripts/qa_poll_cycle.sh --once --manual-ok --approve
 # Poll every 4 minutes
 ai_team_config/scripts/qa_poll_cycle.sh --watch --interval 240
 ```
+
+Guardrail:
+- Do not use bare `--autonomous --manual-ok` to bulk-promote a pending manual review backlog. Clear `PENDING_MANUAL_REVIEW` items by actual QA review and promote per issue.
 
 ## Multi-Window Setup
 

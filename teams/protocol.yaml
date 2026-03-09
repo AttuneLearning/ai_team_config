@@ -41,7 +41,8 @@ issues:
     transition_rules:
       - Dev sets QA=PENDING for QA handoff and after re-fix.
       - QA sets QA=IN_PROGRESS when verification starts.
-      - "QA sets QA=PENDING_MANUAL_REVIEW when all automated gates pass but manual review is not yet complete. Not a dev blocker."
+      - "QA sets QA=PENDING_MANUAL_REVIEW when all automated gates pass but manual review is not yet complete. Not a dev blocker; temporary QA-only checkpoint."
+      - "QA must resolve stale PENDING_MANUAL_REVIEW backlog before widening lower-priority new QA work in autonomous polling."
       - QA sets QA=BLOCKED when automated gates fail or manual review finds critical issues.
       - QA sets QA=PASS only when approving completion.
       - "Crash recovery: QA resets stale IN_PROGRESS → PENDING when previous run exited abnormally."
