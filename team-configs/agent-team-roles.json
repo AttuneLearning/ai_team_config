@@ -1,8 +1,50 @@
 {
   "$schema": "Agent team role definitions shared by Codex and Claude agent teams",
-  "version": "1.1.0",
-  "description": "Default (frontend) role definitions shared across Codex and Claude agent teams. Projects may create local overrides in platform team-config directories.",
+  "version": "1.2.0",
+  "description": "Role definitions shared across Codex and Claude agent teams for frontend-dev and backend-dev. Projects may still create local overrides in platform team-config directories when a repo needs extra specialization.",
   "created": "2026-02-07",
+  "supportedSubRoles": ["frontend-dev", "backend-dev"],
+  "roleProfiles": {
+    "frontend-dev": {
+      "architecture": [
+        "Follow FSD architecture (entities > features > widgets > pages)",
+        "Use shadcn/ui + Tailwind patterns for UI surfaces",
+        "Consume backend contracts without adding local normalizers or transform fallbacks"
+      ],
+      "testing": [
+        "Prefer Vitest and React Testing Library for unit/component coverage",
+        "Use MSW when API mocking is required",
+        "Preserve existing frontend test conventions and nearby patterns"
+      ],
+      "contextFiles": [
+        "team.json",
+        "ai_team_config/roles/frontend-dev.yaml",
+        "memory/patterns/",
+        "memory/entities/",
+        "dev_communication/shared/architecture/decisions/"
+      ]
+    },
+    "backend-dev": {
+      "architecture": [
+        "Follow canonical backend specs in docs/specs/ as the source of truth",
+        "Keep route -> controller -> service -> model/DTO boundaries clean",
+        "Backend owns contracts: no backward-compat layers, silent transforms, or normalizer fallbacks"
+      ],
+      "testing": [
+        "Prefer the repo's backend unit/integration test patterns",
+        "Validate canonical response envelopes and DTO alignment when routes change",
+        "Preserve targeted coverage for service, controller, and contract behavior"
+      ],
+      "contextFiles": [
+        "team.json",
+        "ai_team_config/roles/backend-dev.yaml",
+        "docs/specs/",
+        "memory/patterns/",
+        "memory/entities/",
+        "dev_communication/shared/architecture/decisions/"
+      ]
+    }
+  },
 
   "teamStructure": {
     "lead": {
@@ -35,39 +77,45 @@
         "model": "sonnet-4.5",
         "spawnWhen": "Issue requires code changes",
         "responsibilities": [
-          "Implement source code following FSD patterns",
-          "Create TypeScript types in entity layer",
+          "Implement source code following the active dev sub-role architecture",
+          "Create or update TypeScript types in the appropriate domain layer",
           "Follow patterns from memory/ and applicable ADRs",
           "Use existing abstractions and conventions",
-          "Create API hooks and integration code"
+          "Maintain contract alignment for the active team surface"
         ],
         "contextFiles": [
+          "team.json",
           "CLAUDE.md",
           "AGENTS.md",
+          "ai_team_config/roles/",
           "memory/patterns/",
           "memory/entities/",
-          "dev_communication/shared/architecture/decisions/"
+          "dev_communication/shared/architecture/decisions/",
+          "docs/specs/"
         ],
-        "spawnPrompt": "You are an implementer teammate. Your task: {task_description}. Follow FSD architecture (entities > features > widgets > pages). Use existing patterns from memory/patterns/. Use shadcn/ui + Tailwind for UI components. Define types in the entity layer. Do NOT write tests - the tester teammate handles that. Ensure TypeScript compiles cleanly."
+        "spawnPrompt": "You are an implementer teammate for the active dev sub-role. Your task: {task_description}. Start by reading team.json and ai_team_config/roles/{sub-role}.yaml to confirm whether the active role is frontend-dev or backend-dev. If frontend-dev, follow FSD architecture (entities > features > widgets > pages), use shadcn/ui + Tailwind when working in UI surfaces, and consume backend contracts without adding normalizers. If backend-dev, follow the canonical backend specs in docs/specs/, keep route/controller/service/model + DTO boundaries clean, and preserve backend contract ownership with no backward-compat layers or silent transforms. Use existing patterns from memory/patterns/ and ADRs. Do NOT write tests - the tester teammate handles that. Ensure TypeScript compiles cleanly."
       },
       "tester": {
         "role": "Test Implementation Specialist",
         "model": "sonnet-4.5",
         "spawnWhen": "Issue requires new tests or has test acceptance criteria",
         "responsibilities": [
-          "Write unit tests using Vitest + React Testing Library",
-          "Write integration tests for complex flows",
+          "Write tests using the active dev sub-role's test stack",
+          "Write integration tests for complex flows when the repo supports them",
           "Ensure tests have meaningful assertions",
           "Cover edge cases (empty states, errors, loading)",
-          "Create test mocks (minimal and focused)"
+          "Create focused mocks and fixtures that match the active team's conventions"
         ],
         "contextFiles": [
+          "team.json",
           "CLAUDE.md",
           "AGENTS.md",
+          "ai_team_config/roles/",
           "memory/patterns/",
+          "docs/specs/",
           "vitest.config.ts"
         ],
-        "spawnPrompt": "You are a tester teammate. Your task: {task_description}. Write tests using Vitest and React Testing Library. Tests must have meaningful assertions - not just 'renders without crashing'. Cover happy path, error states, loading states, and edge cases. Use MSW for API mocking. Follow testing patterns in memory/patterns/. Check existing test files nearby for conventions."
+        "spawnPrompt": "You are a tester teammate for the active dev sub-role. Your task: {task_description}. Start by reading team.json and ai_team_config/roles/{sub-role}.yaml. If frontend-dev, write tests with Vitest, React Testing Library, and MSW when API mocking is required. If backend-dev, write tests with the repo's backend unit/integration patterns and validate canonical response, contract, and service behavior when API surfaces change. Tests must have meaningful assertions, not just smoke renders. Cover happy path, error states, loading or failure paths where relevant, and edge cases. Follow testing patterns in memory/patterns/ and check nearby test files for conventions."
       },
       "researcher": {
         "role": "Codebase Research & Context Specialist",
@@ -78,12 +126,14 @@
           "Analyze existing code patterns relevant to the issue",
           "Find similar implementations to use as reference",
           "Identify affected files and potential impacts",
-          "Map FSD layer dependencies for the change",
+          "Map architecture and layer dependencies for the change",
           "Report findings to lead for task planning"
         ],
         "contextFiles": [
+          "team.json",
           "CLAUDE.md",
           "AGENTS.md",
+          "ai_team_config/roles/",
           "memory/",
           "dev_communication/"
         ],
@@ -107,7 +157,7 @@
       "description": "Lead + implementer. For focused implementation work.",
       "teammates": ["implementer"],
       "selectWhen": [
-        "Issue touches 2-4 files in same FSD layer",
+        "Issue touches 2-4 files in the same architectural layer or domain slice",
         "Straightforward feature addition",
         "Tests already exist and just need updating",
         "Bug fix requiring moderate investigation"
@@ -118,7 +168,7 @@
       "teammates": ["implementer", "tester"],
       "selectWhen": [
         "Issue requires new code AND new tests",
-        "Feature spans 3+ files across FSD layers",
+        "Feature spans 3+ files across architectural layers",
         "Acceptance criteria include test requirements",
         "Most team invocations"
       ]
@@ -138,7 +188,7 @@
       "teammates": ["implementer", "implementer", "tester"],
       "selectWhen": [
         "Issue has multiple independent components",
-        "Changes span distinct FSD layers (e.g., entity + widget + page)",
+        "Changes span distinct architectural layers or domains that can be split safely",
         "Components can be built in parallel without file conflicts",
         "Large feature with natural component boundaries"
       ]

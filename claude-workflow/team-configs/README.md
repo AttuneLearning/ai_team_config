@@ -12,22 +12,26 @@ Reusable team configuration files shared across repos via the `.claude-workflow`
 
 ## Override Strategy
 
-The configs in this directory are **frontend defaults** (FSD, Vitest, React Testing Library). Backend or non-frontend projects should create local overrides:
+The configs in this directory support both frontend and backend Cadence sub-roles out of the box:
 
 ```
 your-project/.claude/team-configs/
-├── agent-team-roles.json       # Override: swap FSD → your architecture, Vitest → your test runner
-└── code-reviewer-config.json   # Override: swap FSD checks → your layer checks, test commands
+├── agent-team-roles.json       # Optional override for repo-specific teammate prompts or presets
+└── code-reviewer-config.json   # Optional override for repo-specific review checks or commands
 ```
 
-**What to override** in a backend project:
-- `teamStructure.teammates.implementer` — architecture pattern, spawn prompt
-- `teamStructure.teammates.tester` — test framework, context files, spawn prompt
-- `teamStructure.teammates.researcher` — architecture terminology
-- `teamPresets.*.selectWhen` — layer terminology (FSD → your layers)
-- `gateApproval.criteria.mandatory` — test commands (`vitest` → `jest`, etc.)
-- `reviewChecklist` — framework-specific checks
-- `automatedChecks.commands` — test/coverage commands
+**Built-in role-aware behavior** now covers:
+- `frontend-dev` — FSD, shadcn/ui + Tailwind, Vitest/RTL/MSW patterns
+- `frontend-qa` — frontend verification, accessibility/responsive checks, Vitest plus optional Playwright
+- `backend-dev` — spec-first backend architecture, route/controller/service/model + DTO boundaries, backend contract ownership
+- `backend-qa` — backend contract/security review, unit/integration/contracts validation
+
+**What to override** only when a specific repo needs extra specialization:
+- `teamStructure.teammates.*` — repo-specific prompt wording or context files
+- `teamPresets.*.selectWhen` — custom preset heuristics
+- `gateApproval.criteria.*` — project-specific gate rules
+- `reviewChecklist` — additional framework or domain checks
+- `automatedChecks.bySubRole` — repo-specific commands
 
 **What stays the same** across all projects:
 - `teamStructure.lead` — role, model, responsibilities
@@ -47,7 +51,7 @@ These files live in each project repo (not in the submodule) because they contai
 | `settings.json` | Project settings: permissions, plugins, env, hooks | Enables agent teams + hook wiring |
 | `hooks/task-completed.sh` | TaskCompleted quality gate hook | Portable via team detection from cwd |
 | `hooks/teammate-idle.sh` | TeammateIdle quality gate hook | Portable via team detection from cwd |
-| `team-configs/*.json` | Local overrides of submodule configs | Only needed for non-frontend projects |
+| `team-configs/*.json` | Local overrides of submodule configs | Optional when a repo needs custom commands or wording |
 | `commands/` | Symlinks to `.claude-workflow/skills/` | Connects submodule skills to project |
 
 ## Learned Team Configs (`memory/team-configs/`)

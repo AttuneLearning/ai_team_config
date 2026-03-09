@@ -1,13 +1,3 @@
-# =============================================================================
-# Sub-Team Role Definition: Frontend-Dev
-# =============================================================================
-#
-# Load this file to configure an agent controller window as a Frontend-Dev.
-# The team config (team.json) is written by the installer. This role definition
-# is loaded at session start when the user selects their sub-role.
-#
-# =============================================================================
-
 role_id: frontend-dev
 role_name: Frontend-Dev
 team_id: frontend
@@ -20,7 +10,6 @@ procedures:
   lifecycle: ai_team_config/procedures/dev-lifecycle.md
   comms: ai_team_config/procedures/comms-protocol.md
 
-# What this role owns
 owns:
   - Implementing UI features and integrations against canonical API contracts
   - Writing and maintaining unit/integration/UAT coverage for changed flows
@@ -28,14 +17,12 @@ owns:
   - Sending cross-team messages when backend contract/action is required
   - Moving issues from queue/ to active/
 
-# What this role does NOT own
 does_not_own:
   - Moving issues to completed/ (QA owns Phase 5)
   - Setting Status: COMPLETE on issues
   - Creating issues in backend queues
   - QA verification (Phase 4)
 
-# Verification gate (must pass before handing off to QA)
 dev_gate:
   - "npx tsc --noEmit — 0 errors"
   - "npx vitest run — all tests pass"
@@ -43,7 +30,6 @@ dev_gate:
   - "Session file created: memory/sessions/{date}-{issue-slug}.md"
   - "Resolution notes appended to issue file"
 
-# Comms behavior
 comms:
   from_header: Frontend-Dev
   check_scope: team-only

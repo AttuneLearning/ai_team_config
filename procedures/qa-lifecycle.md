@@ -1,15 +1,6 @@
 # QA Lifecycle Procedure
 
 **Applies to:** All QA roles (backend-qa, frontend-qa)
-**Machine-readable:** `teams/checklists/qa-gate.yaml`
-
----
-
-## Overview
-
-QA operates independently from Dev. QA polls for work that Dev has handed off,
-verifies it meets acceptance criteria, and either approves (moves to completed)
-or rejects (sends findings back to Dev for iteration).
 
 ```
 LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterate
@@ -17,228 +8,123 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 
 ---
 
-## Phase 0: Poll for QA-Ready Items
+## Phase 0: Scan & Triage (BLOCKING)
 
-**When:** Start of every iteration.
-**Blocking:** YES — do not proceed to Phase 1+ until all steps complete.
-**Full procedure:** `procedures/polling-workflow.md` Steps 1–2.
+Every iteration starts here. Do not proceed until complete.
 
-1. Read CONTENTS of every file in your team's `inbox/` (not `inbox/completed/`)
-2. Read CONTENTS of every file in your team's `issues/active/`
-3. Output a triage summary before proceeding (message count, QA-ready count)
-4. Look for QA-ready markers in issue files:
-   - "Development Complete"
-   - "Awaiting QA"
-   - "QA Ready"
-   - "Resolution Notes" (appended by Dev)
-   - `QA: PENDING_MANUAL_REVIEW` (automated checks passed, manual review needed)
-4. Include issues with `QA: PENDING_MANUAL_REVIEW` — these passed automated
-   gates and need manual review to be completed
-5. Check for stale blocks: if an issue has `QA: BLOCKED` and the last QA
-   verification is older than 12 hours, include it in the candidate set
-   for automatic re-check
-6. Check for stale manual review backlog: if an issue has
-   `QA: PENDING_MANUAL_REVIEW` older than one poll interval or 30 minutes,
-   treat it as a guardrail violation and prioritize it ahead of new gate work
-6. Classify inbox messages:
+1. Read CONTENTS of every file in team `inbox/` (not `completed/`)
+2. Read CONTENTS of every file in `issues/active/`
+3. Classify inbox messages:
 
-| Message Type | Action |
-|-------------|--------|
-| Dev handoff notification | → Phase 1 (validate entry) |
-| Dev re-fix after rejection | → Phase 1 (re-validate) |
-| Cross-team status update | → Acknowledge |
+| Type | Action |
+|------|--------|
+| Dev handoff | → Phase 1 |
+| Dev re-fix | → Phase 1 (re-validate) |
+| Cross-team update | → Acknowledge |
 
-7. Prioritize: stale `PENDING_MANUAL_REVIEW` issues first, then fresh
-   `PENDING_MANUAL_REVIEW` issues, then re-fixes of previously blocked issues,
-   then new handoffs
+4. Look for QA-ready markers: "Development Complete", "Awaiting QA", "Resolution Notes", `QA: PENDING_MANUAL_REVIEW`
+5. Stale block recheck: `QA: BLOCKED` with last verification >12h → include for re-check
+6. Stale manual review: `QA: PENDING_MANUAL_REVIEW` >30 min → prioritize ahead of new work
+7. Output triage summary before proceeding
 
----
+**Priority:** stale PENDING_MANUAL_REVIEW → fresh PENDING_MANUAL_REVIEW → re-fixes → new handoffs
 
 ## Phase 1: Entry Validation
 
-Before running any checks, confirm the issue is ready:
+1. Issue in `active/` with Status ACTIVE or DEV_COMPLETE
+2. Resolution notes present
+3. Acceptance criteria defined
+4. **Freshness (previously BLOCKED):** Both required, each newer than last `## QA Verification`:
+   - A fresh inbox handoff/re-handoff message from Dev
+   - A `## Dev Response ({ISO timestamp})` section in the issue file
+   Either alone is stale. First-time handoffs without prior QA verification use normal markers.
+5. Implementation evidence: commits, changed files, or tests
+6. If planning-only (no code), emit Need More Info — skip gates
 
-1. Issue has Status: ACTIVE or DEV_COMPLETE
-2. Resolution notes are present (Dev filled these in during Phase 5)
-3. Acceptance criteria are defined
-4. Dev verification gate results are documented (typecheck, tests)
-5. **Freshness check:** Issue has a QA Review Request or Dev Response timestamp
-   newer than the last QA verification. Prevents re-running QA on stale stubs.
-6. **Implementation evidence:** Issue has commit references, changed files, or
-   test additions. If the issue is planning-only (no code evidence), emit
-   "Need More Info" — do not run the full gate suite.
+## Phase 2: Automated Gates (BLOCKING)
 
-**If entry criteria are not met:** Send "Need More Info" back to Dev's inbox
-with specific missing items. Do not proceed.
-
----
-
-## Phase 2: Automated Verification (BLOCKING)
-
-Run the automated test gates. All must pass for the issue to proceed.
-
-### Backend-QA checks:
+### Backend-QA:
 | Check | Command | Criteria |
 |-------|---------|----------|
 | Typecheck | `npx tsc --noEmit` | 0 errors |
 | Unit tests | `npm run test:unit` | All pass |
-| Integration tests | `npm run test:integration` | All pass |
-| UAT (contract validation) | `npm run contracts:validate` | All pass |
+| Integration | `npm run test:integration` | All pass |
+| UAT | `npm run contracts:validate` | All pass |
 
-### Frontend-QA checks:
+### Frontend-QA:
 | Check | Command | Criteria |
 |-------|---------|----------|
 | Typecheck | `npx tsc --noEmit` | 0 errors |
 | Unit tests | `npx vitest run` | All pass |
-| Integration tests | `npx vitest run --config integration` | All pass |
-| UAT (E2E) | `npx playwright test` | All pass |
+| Integration | `npx vitest run --config vitest.integration.config.ts` | All pass |
+| UAT | `npx playwright test --project=chromium` | All pass |
 
-**Per-check timeout:** As configured in role yaml (default 120s).
-
-**On all pass (manual review not yet completed in this run):** Set
-`QA: PENDING_MANUAL_REVIEW`. Do NOT send a message to Dev's inbox — this is not
-a dev blocker. Move immediately to Phase 3 on the same polling lifecycle when
-possible. This state should be short-lived.
-
-**On failure:** Record which gate failed. Move to Phase 4 with "Blocked" verdict.
-
----
+**On all pass:** Proceed to Phase 3. If manual review cannot be done this run, set `QA: PENDING_MANUAL_REVIEW` temporarily.
+**On failure:** Record failures, move to Phase 4 with BLOCKED verdict.
 
 ## Phase 3: Manual Review
 
-Human-judgment checks that automation cannot catch:
-
-| Check | What to Look For |
-|-------|-----------------|
-| Efficiency | No unnecessary loops, queries, or allocations |
+| Check | Look For |
+|-------|----------|
 | Accuracy | Logic matches acceptance criteria and spec |
-| Non-duplication | No copy-paste code; uses existing patterns/services |
-| Security | No injection vectors, proper auth checks, no PII leaks |
-| ADR conformance | Follows architectural decisions (check relevant ADRs) |
-| Contract alignment | Response shapes match shared contract DTOs exactly |
-| Regression scope | Changes don't break unrelated functionality |
+| Efficiency | No unnecessary loops, queries, allocations |
+| Non-duplication | Uses existing patterns/services |
+| Security | No injection, proper auth, no PII leaks |
+| ADR conformance | Follows architectural decisions |
+| Contract alignment | Response shapes match contract DTOs exactly |
+| Regression | Changes don't break unrelated functionality |
 
-**Coverage assessment:**
-- Check that acceptance criteria have corresponding tests
-- If tests are missing, document which criteria need test coverage
-- Include the acceptance-criteria-to-test mapping in your verdict
+Map acceptance criteria → test evidence. Document gaps.
 
-**Autonomous guardrail:**
-- In autonomous QA, Phase 3 is required follow-through work for any issue in
-  `PENDING_MANUAL_REVIEW`.
-- Do not keep cycling new gate runs while stale pending manual reviews remain.
-- End Phase 3 with a real verdict: `PASS`, `PASS WITH CONDITIONS`, `BLOCKED`,
-  or `NEED MORE INFO`.
+## Phase 4: Verdict
 
----
+| Verdict | QA State | Next |
+|---------|----------|------|
+| **Pass** | PASS | → Phase 5 |
+| **Pass with Conditions** | PASS | → Phase 5 with notes |
+| **Blocked** | BLOCKED | → Phase 6 (dev fixes) |
+| **Need More Info** | BLOCKED | → Phase 6 (iterate) |
 
-## Phase 4: Verdict & Evidence
+`PENDING_MANUAL_REVIEW` is a **temporary checkpoint only** — not a dev blocker, not a resting state. QA must resolve it to PASS or BLOCKED promptly. Do NOT notify Dev for this state. If stale >30 min, resolve before taking new work.
 
-Emit one of four verdicts:
+**Evidence for every verdict:** issue ref, file/route ref, gate results, criteria-to-test mapping, manual review notes, unblock criteria (for blocked).
 
-| Verdict | When | QA State | Next Step |
-|---------|------|----------|-----------|
-| **Pass** | All gates green, manual review clean | `PASS` | → Phase 5 (complete) |
-| **Pass with Conditions** | Minor issues, non-blocking | `PASS` | → Phase 5 with notes |
-| **Pending Manual Review** | All automated gates pass, but the current iteration could not finish manual review | `PENDING_MANUAL_REVIEW` | → Phase 6 (QA must pick this up before lower-priority new work) |
-| **Blocked** | Automated gate failed OR critical manual finding | `BLOCKED` | → Phase 6 (dev must fix) |
-| **Need More Info** | Cannot determine pass/fail | `BLOCKED` | → Phase 6 (iterate) |
+**Severity:** Critical (security/data loss) → High (capability broken) → Medium (workflow gap) → Low (docs/naming)
 
-**IMPORTANT:** `PENDING_MANUAL_REVIEW` is NOT a dev blocker. Do NOT send findings
-to Dev's inbox for this verdict. Dev should ignore issues in this state — they are
-QA's responsibility to complete. It is also not a resting state for autonomous
-polling; QA must convert it to `PASS` or `BLOCKED` promptly.
+## Phase 5: Completion (QA Only)
 
-**Required evidence for every verdict:**
-- Issue reference (ISS-xxx)
-- File or route reference
-- Automated gate results (pass/fail per gate)
-- Coverage assessment (criteria-to-test mapping)
-- Manual review notes
-- For Blocked/Need More Info: clear unblock criteria
+1. Set `QA: PASS`, `Status: COMPLETE` in issue file
+2. Move issue `active/` → `completed/`
+3. Move processed messages to `inbox/completed/`
+4. Send completion notice to Dev's inbox
 
-**Severity classification (for findings):**
-- Critical: release-blocking, security, data loss
-- High: role/capability broken
-- Medium: workflow gap, non-blocking contract drift
-- Low: minor UX/docs mismatch
-
-**Write the verdict** to the issue file as an appended QA Verification section.
-
----
-
-## Phase 5: Completion (Pass Only)
-
-**QA owns this phase EXCLUSIVELY.** Dev cannot move issues to completed.
-
-1. Update issue status to COMPLETE
-2. Move issue file from `active/` to `completed/`
-3. Move processed inbox messages for this issue to `inbox/completed/`
-4. Send completion notification to Dev's inbox
-5. If cross-team impact, notify the other team
-
----
+Dev CANNOT execute this phase.
 
 ## Phase 6: Iterate
 
-### Pending Manual Review verdict:
+**Blocked/Need More Info:** Send findings to Dev inbox with gate results, unblock criteria, expected vs actual. Wait for Dev to re-submit with both a fresh inbox message and a fresh `## Dev Response (...)` section.
 
-1. Issue stays in `active/` with `QA: PENDING_MANUAL_REVIEW`
-2. Do NOT send a message to Dev — no dev action is needed
-3. QA picks this up on the next iteration (skip automated gates, go directly to Phase 3)
-4. **Guardrail:** if the issue remains `PENDING_MANUAL_REVIEW` beyond one poll
-   interval or 30 minutes, resolve it before running lower-priority new QA work
+**While waiting:** Pick next QA-ready item.
 
-### Blocked or Need More Info verdicts:
+**Exit:** All active issues completed, inbox clear.
 
-1. Send findings to Dev's inbox with:
-   - Which gates failed and why
-   - Specific unblock criteria
-   - Expected behavior vs actual
-2. Wait for Dev to re-fix and re-submit
-3. When Dev responds, return to Phase 0
-
-**While waiting:** Pick the next QA-ready item and begin Phase 1.
-
-**Exit condition:** All issues in `active/` have been moved to `completed/`,
-no unprocessed messages remain in inbox.
+Ownership boundaries: see `procedures/comms-protocol.md`.
 
 ---
+
+## Loop Control
+
+Continuous loop — runs until 30 idle minutes with no work.
+- **Work done** → reset idle timer, return to Phase 0
+- **No work** → idle timer continues; exit at 30 min
+- Do NOT pause to ask user
+- PENDING_MANUAL_REVIEW is required follow-through, not "done for now"
+- Resolve stale manual reviews before new gate passes
 
 ## Autonomous Mode
 
-The QA polling script supports `--autonomous` mode for unattended operation:
-
 ```bash
-# Continuous autonomous polling with backlog guardrails
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --no-stale-recheck
-
-# Single issue promotion only after actual manual review is complete
-ai_team_config/scripts/qa_poll_cycle.sh --autonomous --manual-ok --issue UI-ISS-123 --once
+ai_team_config/scripts/qa_poll_cycle.sh --autonomous
 ```
 
-`--autonomous` implies `--watch --approve --recheck-existing --emit-dev-message`.
-Explicit flags (e.g. `--once`, `--no-emit-dev-message`) override these defaults.
-
-Guardrails for autonomous QA:
-- Do not use bare `--manual-ok` to bulk-promote a backlog.
-- Treat `PENDING_MANUAL_REVIEW` as an interrupted checkpoint, not a stable queue.
-- When stale pending manual review backlog exists, finish that manual review
-  work before widening the queue with lower-priority new gate runs.
-
-See `dev_communication/shared/specs/POLLING_AUTONOMOUS_QA_REVISION.md` for full
-specification.
-
----
-
-## Ownership Boundaries
-
-| Action | Owner |
-|--------|-------|
-| Run verification gates | QA |
-| Perform manual review | QA |
-| Emit verdicts | QA |
-| Move issue active/ → completed/ | **QA only** |
-| Set Status: COMPLETE | **QA only** |
-| Write implementation code | **Dev only** |
-| Create issues | Dev (QA can create QA-specific blocker issues) |
+Implies `--watch --approve --recheck-existing --emit-dev-message`. Explicit flags override.

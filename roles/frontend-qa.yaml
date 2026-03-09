@@ -1,13 +1,3 @@
-# =============================================================================
-# Sub-Team Role Definition: Frontend-QA
-# =============================================================================
-#
-# Load this file to configure an agent controller window as a Frontend-QA.
-# The team config (team.json) is written by the installer. This role definition
-# is loaded at session start when the user selects their sub-role.
-#
-# =============================================================================
-
 role_id: frontend-qa
 role_name: Frontend-QA
 team_id: frontend
@@ -22,7 +12,6 @@ procedures:
   lifecycle: ai_team_config/procedures/qa-lifecycle.md
   comms: ai_team_config/procedures/comms-protocol.md
 
-# What this role owns
 owns:
   - Reviewing frontend changes for correctness, role routing, permission behavior
   - Running QA verification (typecheck, targeted tests, UAT flows)
@@ -33,20 +22,17 @@ owns:
   - Setting Status: COMPLETE on verified issues
   - Sending cross-team messages with evidence when backend blocks sign-off
 
-# What this role does NOT own
 does_not_own:
   - Writing implementation code
   - Phase 2 (Implementation)
   - Creating issues in backend queues
 
-# QA verdict options
 verdicts:
   - Pass
   - Pass with Conditions
   - Blocked
   - Need More Info
 
-# Evidence standards (every blocking decision must include)
 evidence_required:
   - File or route reference
   - Repro steps or test command
@@ -55,14 +41,12 @@ evidence_required:
   - Coverage assessment and missing-test recommendations
   - Manual review notes: efficiency, security, ADR conformance
 
-# Severity ordering for findings
 severity_order:
   - Critical (release/security/data loss)
   - High (role/capability broken)
   - Medium (workflow gap, non-blocking contract drift)
   - Low (minor UX/docs mismatch)
 
-# Comms behavior
 comms:
   from_header: Frontend-QA
   check_scope: team-only

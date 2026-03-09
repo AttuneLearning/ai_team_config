@@ -1,42 +1,11 @@
 # {{PROJECT_NAME}} — Project Memory
 
-## Polling = Dev Lifecycle (MANDATORY)
+## Polling
 
-When user says "start polling" / "poll" / "begin polling":
-1. Confirm sub-role is established (prompted at session start). Read `team.json` for paths.
-2. Read `ai_team_config/procedures/polling-workflow.md` → route to correct lifecycle
-3. Execute the FULL lifecycle loop (dev-lifecycle.md or qa-lifecycle.md)
+When told to poll: read your role YAML `procedures.lifecycle` field and follow that document.
+Quick-start prompts: `ai_team_config/prompts/claude/{role}-polling.md`
 
-**Two nested loops (dev roles):**
-- OUTER: Poll → Assess → Plan → Contracts → [inner loop per issue]
-- INNER: Implement → Verify → Document → QA → Iterate
-
-**Single loop (QA roles):**
-- Poll → Validate → Verify → Review → Verdict → Complete/Iterate
-
-**NOT passive file watching. NOT running QA checks as dev. NOT just reporting files.**
-
-## Role & Team
-
-- Team config defined in `team.json` (team-level paths, allowed sub-roles)
-- Sub-role selected at session start (held in memory, not written to disk)
-- Role details in `ai_team_config/roles/{sub-role}.yaml`
-- Lifecycle checklists in `ai_team_config/teams/checklists/`
-- Procedures in `ai_team_config/procedures/`
-
-## Key Procedures
-
-- Dev lifecycle: `ai_team_config/procedures/dev-lifecycle.md`
-- QA lifecycle: `ai_team_config/procedures/qa-lifecycle.md`
-- Polling workflow: `ai_team_config/procedures/polling-workflow.md`
-- Comms protocol: `ai_team_config/procedures/comms-protocol.md`
-
-## Ownership Rules
-
-- **Dev creates issues**, moves queue/ → active/
-- **QA moves active/ → completed/** — Dev NEVER does this
-- **Backend-Dev defines contracts** in `contracts/types/`
-- **Frontend-Dev consumes contracts** — never writes normalizers
+**NOT passive file watching. NOT just reporting files. Execute the full lifecycle loop.**
 
 ## Project-Specific Notes
 

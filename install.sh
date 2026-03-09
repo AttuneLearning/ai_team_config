@@ -394,6 +394,25 @@ else
   echo "  Creating memory/ from scaffold..."
   cp -r "${SCRIPT_DIR}/scaffolds/memory" "$MEMORY_DIR"
 fi
+
+# Copy team-appropriate prompts to memory/prompts/workflows/
+PROMPTS_ROOT="${SCRIPT_DIR}/prompts"
+PROMPTS_DST="${MEMORY_DIR}/prompts/workflows"
+if [ -d "$PROMPTS_ROOT" ]; then
+  mkdir -p "$PROMPTS_DST"
+  for prompt_dir in "${PROMPTS_ROOT}"/*; do
+    [ -d "$prompt_dir" ] || continue
+    for prompt_file in "${prompt_dir}/${TEAM_ID}-"*.md; do
+      [ -f "$prompt_file" ] || continue
+      fname="$(basename "$prompt_file")"
+      if [ ! -f "${PROMPTS_DST}/${fname}" ]; then
+        cp "$prompt_file" "${PROMPTS_DST}/${fname}"
+        echo "  Installed prompt: prompts/workflows/${fname}"
+      fi
+    done
+  done
+fi
+
 echo "  Done."
 echo ""
 

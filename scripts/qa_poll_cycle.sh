@@ -534,7 +534,10 @@ has_fresh_dev_evidence() {
     return 0  # No prior QA verification, treat as fresh
   fi
 
-  # Check inbox for new dev message referencing this issue
+  # BLOCKED issue re-pickup requires BOTH:
+  #   1. a fresh dev inbox handoff/re-handoff message
+  #   2. a fresh issue-level `## Dev Response (...)` annotation
+  local latest_dev_handoff_epoch=0
   local msg_file
   while IFS= read -r msg_file; do
     [[ -z "$msg_file" ]] && continue
@@ -542,23 +545,32 @@ has_fresh_dev_evidence() {
     msg_epoch="$(stat -c '%Y' "$msg_file" 2>/dev/null || stat -f '%m' "$msg_file" 2>/dev/null || echo 0)"
     local msg_from
     msg_from="$(grep -m1 -E '^\*\*From:\*\* ' "$msg_file" | sed -E 's/^\*\*From:\*\* //')"
-    if [[ "$msg_from" == "$from_header" ]]; then
+    if [[ "${msg_from,,}" != "${to_header,,}" ]]; then
       continue
     fi
-    if [[ "$msg_epoch" -gt "$last_qa_epoch" ]] && grep -q "$issue_id" "$msg_file" 2>/dev/null; then
-      return 0
+    if ! grep -q "$issue_id" "$msg_file" 2>/dev/null; then
+      continue
+    fi
+    local msg_name
+    msg_name="$(basename "$msg_file" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$msg_name" != *dev-rehandoff* && "$msg_name" != *qa-handoff* ]] \
+      && ! grep -Eiq 'QA Handoff|Re-Handoff|Rehandoff|QA Review Request|Awaiting QA|QA Ready|Ready for QA' "$msg_file"; then
+      continue
+    fi
+    if [[ "$msg_epoch" -gt "$last_qa_epoch" && "$msg_epoch" -gt "$latest_dev_handoff_epoch" ]]; then
+      latest_dev_handoff_epoch="$msg_epoch"
     fi
   done < <(find "$inbox_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null || true)
 
-  # Check issue file for Resolution Notes / Dev Fix heading dated after last QA
-  local fix_date
-  fix_date="$(grep -A1 -E '^## (Resolution Notes|Dev Fix)' "$issue_file" | grep -oP '\d{4}-\d{2}-\d{2}' | tail -n1 || true)"
-  if [[ -n "$fix_date" ]]; then
-    local fix_epoch
-    fix_epoch="$(date -d "$fix_date" +%s 2>/dev/null || echo 0)"
-    if [[ "$fix_epoch" -gt "$last_qa_epoch" ]]; then
-      return 0
-    fi
+  local dev_response_ts
+  dev_response_ts="$(grep -oP '## Dev Response \(\K[^)]+' "$issue_file" | tail -n1 || true)"
+  local dev_response_epoch=0
+  if [[ -n "$dev_response_ts" ]]; then
+    dev_response_epoch="$(date -d "$dev_response_ts" +%s 2>/dev/null || echo 0)"
+  fi
+
+  if [[ "$latest_dev_handoff_epoch" -gt "$last_qa_epoch" && "$dev_response_epoch" -gt "$last_qa_epoch" ]]; then
+    return 0
   fi
 
   return 1

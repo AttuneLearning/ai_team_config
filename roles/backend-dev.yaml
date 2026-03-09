@@ -1,13 +1,3 @@
-# =============================================================================
-# Sub-Team Role Definition: Backend-Dev
-# =============================================================================
-#
-# Load this file to configure an agent controller window as a Backend-Dev.
-# The team config (team.json) is written by the installer. This role definition
-# is loaded at session start when the user selects their sub-role.
-#
-# =============================================================================
-
 role_id: backend-dev
 role_name: Backend-Dev
 team_id: backend

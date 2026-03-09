@@ -1,9 +1,10 @@
 {
   "$schema": "Custom team config for code review gate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Code Reviewer / QA Architect",
-  "description": "Code-gate role that enforces tests, development standards, and creates memory files",
+  "description": "Code-gate role that enforces tests, development standards, and memory/documentation across frontend and backend dev/qa workflows",
   "created": "2026-02-07",
+  "supportedSubRoles": ["frontend-dev", "frontend-qa", "backend-dev", "backend-qa"],
   "basedOn": [
     "team-config-learning-unit-ui.json (agent-qa-architect)",
     "team-config.json (qa-validator)"
@@ -22,7 +23,7 @@
       "budget": "high",
       "interleaved": true,
       "useFor": [
-        "Reviewing architectural decisions and FSD compliance",
+        "Reviewing architectural decisions and role-appropriate layer compliance",
         "Validating test quality and coverage gaps",
         "Identifying patterns worth documenting",
         "Deciding what belongs in memory files",
@@ -31,18 +32,74 @@
     }
   },
 
+  "subRoleProfiles": {
+    "frontend-dev": {
+      "focus": [
+        "FSD layer boundaries (entities -> features -> widgets -> pages)",
+        "shadcn/ui + Tailwind consistency",
+        "Frontend contract consumption with no local normalizers"
+      ],
+      "commands": {
+        "unitTests": "npx vitest run {test_files}",
+        "integrationTests": "npx vitest run --config integration",
+        "coverage": "npx vitest run --coverage",
+        "lint": "npx eslint {changed_files}"
+      }
+    },
+    "frontend-qa": {
+      "focus": [
+        "Frontend acceptance criteria, accessibility, and responsive behavior",
+        "Vitest/integration coverage plus any configured E2E pass",
+        "UI contract consumption without frontend-side transforms"
+      ],
+      "commands": {
+        "unitTests": "npx vitest run",
+        "integrationTests": "npx vitest run --config integration",
+        "uat": "npx playwright test",
+        "coverage": "npx vitest run --coverage",
+        "lint": "npx eslint {changed_files}"
+      }
+    },
+    "backend-dev": {
+      "focus": [
+        "Canonical backend specs in docs/specs/ as source of truth",
+        "Route/controller/service/model + DTO boundaries",
+        "Backend contract ownership with no backward-compat layers or silent transforms"
+      ],
+      "commands": {
+        "unitTests": "npm run test:unit",
+        "integrationTests": "npm run test:integration",
+        "contracts": "npm run contracts:validate",
+        "lint": "npx eslint {changed_files}"
+      }
+    },
+    "backend-qa": {
+      "focus": [
+        "Backend contract alignment, security, and canonical response envelopes",
+        "Independent recheck of typecheck, unit, integration, and contract validation",
+        "Manual review of route/controller/service/model boundaries and regression scope"
+      ],
+      "commands": {
+        "unitTests": "npm run test:unit",
+        "integrationTests": "npm run test:integration",
+        "contracts": "npm run contracts:validate",
+        "lint": "npx eslint {changed_files}"
+      }
+    }
+  },
+
   "responsibilities": {
     "codeQuality": [
       "Review all implementations before issue completion",
-      "Enforce FSD layer boundaries (entities -> features -> widgets -> pages)",
+      "Enforce role-appropriate layer boundaries (frontend FSD; backend route/controller/service/model + DTO)",
       "Validate TypeScript strict mode compliance",
       "Check for proper error handling patterns",
-      "Verify accessibility (ARIA, keyboard navigation)",
-      "Ensure responsive design patterns followed"
+      "Review frontend accessibility/responsive behavior when applicable",
+      "Review backend contract alignment, security boundaries, and canonical response behavior when applicable"
     ],
     "testEnforcement": [
       "Verify unit tests exist for new functionality",
-      "Check integration tests for complex flows",
+      "Check integration tests for complex flows when the active sub-role requires them",
       "Validate test coverage meets minimum (70% overall, 80% critical)",
       "Review test quality - not just coverage but meaningful assertions",
       "Ensure regression tests added for bug fixes"
@@ -50,9 +107,9 @@
     "standardsCompliance": [
       "Enforce ADR compliance for architectural decisions",
       "Validate patterns match existing codebase conventions",
-      "Check naming conventions (PascalCase components, useCamelCase hooks)",
-      "Verify imports follow FSD layer rules",
-      "Ensure shadcn/ui + Tailwind patterns used consistently"
+      "Check naming conventions appropriate to the active surface",
+      "Verify imports and layering follow the active sub-role architecture",
+      "Ensure frontend UI patterns or backend contract/spec rules are followed for the active sub-role"
     ],
     "memoryCreation": [
       "Create session file: memory/sessions/{date}-{issue-slug}.md",
@@ -76,8 +133,8 @@
         },
         {
           "id": "tests-pass",
-          "check": "npx vitest run {changed_test_files}",
-          "requirement": "All tests pass",
+          "check": "Run the active sub-role unit test command from automatedChecks.bySubRole",
+          "requirement": "All required role-specific test suites pass",
           "automated": true
         },
         {
@@ -102,14 +159,14 @@
       "recommended": [
         {
           "id": "coverage",
-          "check": "npx vitest run --coverage",
-          "requirement": "70% overall, 80% critical paths",
+          "check": "Run the active sub-role coverage command when configured",
+          "requirement": "70% overall, 80% critical paths where coverage tooling exists",
           "automated": true
         },
         {
           "id": "fsd-compliance",
-          "check": "Manual review of imports",
-          "requirement": "No upward imports in FSD layers",
+          "check": "Manual review of layering/import boundaries",
+          "requirement": "Frontend: no upward imports in FSD layers. Backend: clean route/controller/service/model + DTO boundaries",
           "automated": false
         },
         {
@@ -165,24 +222,28 @@
     }
   },
 
-  "reviewChecklist": {
+    "reviewChecklist": {
     "preReview": [
       "Read the issue requirements and acceptance criteria",
       "Understand the scope of changes",
-      "Check for related patterns in memory/"
+      "Check for related patterns in memory/",
+      "Confirm the active sub-role so frontend/backend-specific checks use the right standard"
     ],
     "codeReview": [
       "[ ] TypeScript compiles without errors",
-      "[ ] FSD layer boundaries respected",
-      "[ ] Imports follow conventions (@/ aliases, no relative parent imports)",
-      "[ ] Components use shadcn/ui primitives where applicable",
-      "[ ] Hooks follow React Query patterns for server state",
+      "[ ] Role-appropriate architecture boundaries respected",
+      "[ ] Imports follow conventions (@/ aliases, no invalid upward or cross-layer imports)",
+      "[ ] Frontend: components use established UI primitives where applicable",
+      "[ ] Backend: route/controller/service/model + DTO boundaries remain clean",
+      "[ ] Frontend: hooks follow React Query patterns for server state when applicable",
+      "[ ] Backend endpoints preserve canonical response and contract behavior",
       "[ ] Error handling is consistent",
       "[ ] No console.log statements left in production code"
     ],
     "testReview": [
-      "[ ] Unit tests exist for new functions/hooks",
-      "[ ] Component tests use React Testing Library",
+      "[ ] Unit tests exist for new functions/hooks/services/routes",
+      "[ ] Frontend component tests use React Testing Library when applicable",
+      "[ ] Backend route/service tests cover contract and behavior changes when applicable",
       "[ ] Tests have meaningful assertions (not just 'renders')",
       "[ ] Edge cases covered (empty states, errors, loading)",
       "[ ] Mocks are minimal and focused"
@@ -203,13 +264,23 @@
         "blocking": true
       },
       "unitTests": {
-        "command": "npx vitest run {test_files}",
+        "command": "Use the active sub-role unit test command from automatedChecks.bySubRole",
         "expectation": "All pass",
         "blocking": true
       },
+      "integrationTests": {
+        "command": "Use the active sub-role integration test command from automatedChecks.bySubRole when configured",
+        "expectation": "All pass",
+        "blocking": false
+      },
+      "contractsOrUat": {
+        "command": "Backend: npm run contracts:validate. Frontend QA: npx playwright test when configured",
+        "expectation": "All pass",
+        "blocking": false
+      },
       "coverage": {
-        "command": "npx vitest run --coverage",
-        "expectation": "70% minimum",
+        "command": "Use the active sub-role coverage command when configured",
+        "expectation": "70% minimum where coverage tooling exists",
         "blocking": false
       },
       "lint": {
@@ -218,7 +289,34 @@
         "blocking": false
       }
     },
-    "runOrder": ["typeCheck", "unitTests", "coverage", "lint"]
+    "bySubRole": {
+      "frontend-dev": {
+        "unitTests": "npx vitest run {test_files}",
+        "integrationTests": "npx vitest run --config integration",
+        "coverage": "npx vitest run --coverage",
+        "lint": "npx eslint {changed_files}"
+      },
+      "frontend-qa": {
+        "unitTests": "npx vitest run",
+        "integrationTests": "npx vitest run --config integration",
+        "contractsOrUat": "npx playwright test",
+        "coverage": "npx vitest run --coverage",
+        "lint": "npx eslint {changed_files}"
+      },
+      "backend-dev": {
+        "unitTests": "npm run test:unit",
+        "integrationTests": "npm run test:integration",
+        "contractsOrUat": "npm run contracts:validate",
+        "lint": "npx eslint {changed_files}"
+      },
+      "backend-qa": {
+        "unitTests": "npm run test:unit",
+        "integrationTests": "npm run test:integration",
+        "contractsOrUat": "npm run contracts:validate",
+        "lint": "npx eslint {changed_files}"
+      }
+    },
+    "runOrder": ["typeCheck", "unitTests", "integrationTests", "contractsOrUat", "coverage", "lint"]
   },
 
   "completionWorkflow": {
@@ -256,7 +354,10 @@
   "examples": {
     "sessionFileExample": "memory/sessions/2026-02-07-admin-enrollment-management.md",
     "patternFileExample": "memory/patterns/entity-action-menu.md",
-    "issueCompletionExample": "dev_communication/issues/ui/completed/UI-ISS-088.md"
+    "issueCompletionExamples": {
+      "frontend": "dev_communication/frontend/issues/completed/UI-ISS-088.md",
+      "backend": "dev_communication/backend/issues/completed/API-ISS-088.md"
+    }
   },
 
   "notes": [
@@ -264,6 +365,7 @@
     "Use extended thinking for subjective quality decisions",
     "Memory creation is mandatory, not optional",
     "Can be run as separate agent or integrated into the completion workflow",
+    "Use the active sub-role to choose frontend vs backend checks and review criteria",
     "Opus 4.6 preferred for pattern recognition and architectural judgment"
   ]
 }
