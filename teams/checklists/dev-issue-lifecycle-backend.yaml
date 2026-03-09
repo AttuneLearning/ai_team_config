@@ -20,22 +20,46 @@ applies_to:
 phase_0_comms:
   name: Poll comms and triage
   trigger: start_of_iteration
+  blocking: true
+  procedure_ref: procedures/polling-workflow.md (Steps 1-2)
   steps:
-    - Read backend/inbox/ for new messages
-    - Read backend/issues/queue/ for unstarted issues
-    - Read backend/issues/active/ for in-progress or QA-blocked issues
-    - Check active issues for "Awaiting Response" entries; scan inbox for matching replies
+    # ---------------------------------------------------------------
+    # SCAN — read CONTENTS, not filenames
+    # ---------------------------------------------------------------
+    - List and READ CONTENTS of every file in backend/inbox/ (not completed/)
+    - List and READ CONTENTS of every file in backend/issues/queue/
+    - List and READ CONTENTS of every file in backend/issues/active/
+    - Check active issues for "Awaiting Response" entries
+    - Do NOT dismiss issues based on metadata — read and assess each one
+
+    # ---------------------------------------------------------------
+    # TRIAGE — classify and output proof
+    # ---------------------------------------------------------------
     - Classify each inbox message:
         - contract_request → Phase 1
         - implementation_plan → Phase 0b
         - qa_finding → match to active issue, prioritize re-fix
         - frontend_bug_report → Phase 0b (assess, create issue)
         - reply_to_outbound → match to original thread, unblock or create issue
+        - question → respond directly
         - status_update → acknowledge, no action unless blocking
     - Match findings and cross-team requests to active issues
     - Unblock issues where dependencies are resolved
+
+    # ---------------------------------------------------------------
+    # VERIFICATION — required before proceeding
+    # ---------------------------------------------------------------
+    - Output triage summary with counts and action items
+  verification:
+    criteria: All inbox messages read and classified before any Phase 1+ work begins
+    required_output: |
+      ## Poll Iteration [N]
+      Inbox: [X] messages read, [Y] actionable
+      Queue: [X] issues | Active: [X] issues
+      New work found: YES/NO
+    on_failure: Do NOT proceed to implementation — finish the scan first
   sources:
-    - dev_communication/backend/inbox
+    - dev_communication/backend/inbox (exclude completed/ subdirectory)
     - dev_communication/backend/issues/queue
     - dev_communication/backend/issues/active
 
@@ -142,6 +166,25 @@ phase_5_document:
     Issue stays in active/ with Status: ACTIVE.
     Do NOT move to completed/. Do NOT set Status: COMPLETE.
     QA owns verification and completion.
+
+# ---------------------------------------------------------------------------
+# Phase 5b: Inbox Cleanup
+# ---------------------------------------------------------------------------
+
+phase_5b_cleanup:
+  name: Move processed messages to completed
+  procedure_ref: procedures/polling-workflow.md (Step 4)
+  steps:
+    - For each inbox message processed this iteration, move to inbox/completed/:
+        - question → moved when response sent
+        - contract_request → moved when contract confirmed or issue created
+        - qa_finding → moved when fix implemented and re-handoff sent
+        - status_update → moved when read and acknowledged
+        - bug_report → moved when issue created
+    - Only messages in inbox/ root — never touch completed/
+  rule: >
+    Inbox should only contain unprocessed messages. Cleanup happens after
+    every work phase, not at the end of the session.
 
 # ---------------------------------------------------------------------------
 # Phase 6: Iterate

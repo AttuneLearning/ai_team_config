@@ -20,10 +20,13 @@ LOOP: Poll → Validate → Verify → Review → Verdict → Complete or Iterat
 ## Phase 0: Poll for QA-Ready Items
 
 **When:** Start of every iteration.
+**Blocking:** YES — do not proceed to Phase 1+ until all steps complete.
+**Full procedure:** `procedures/polling-workflow.md` Steps 1–2.
 
-1. Read your team's inbox for new messages
-2. Read your team's `issues/active/` for issues marked QA-ready
-3. Look for QA-ready markers in issue files:
+1. Read CONTENTS of every file in your team's `inbox/` (not `inbox/completed/`)
+2. Read CONTENTS of every file in your team's `issues/active/`
+3. Output a triage summary before proceeding (message count, QA-ready count)
+4. Look for QA-ready markers in issue files:
    - "Development Complete"
    - "Awaiting QA"
    - "QA Ready"
@@ -157,8 +160,9 @@ QA's responsibility to complete.
 
 1. Update issue status to COMPLETE
 2. Move issue file from `active/` to `completed/`
-3. Send completion notification to Dev's inbox
-4. If cross-team impact, notify the other team
+3. Move processed inbox messages for this issue to `inbox/completed/`
+4. Send completion notification to Dev's inbox
+5. If cross-team impact, notify the other team
 
 ---
 

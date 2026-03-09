@@ -21,13 +21,16 @@ INNER LOOP: Implement → Verify → Document → QA Handoff → Iterate
 ## Phase 0: Poll Comms & Triage
 
 **When:** Start of every iteration (outer loop entry point).
+**Blocking:** YES — do not proceed to Phase 1+ until all steps complete.
+**Full procedure:** `procedures/polling-workflow.md` Steps 1–2.
 
-1. Read your team's inbox — every file, no skipping
-2. Read `issues/queue/` for unstarted issues
-3. Read `issues/active/` for in-progress or QA-blocked issues
-4. Check active issues for `## Awaiting Response` entries; scan inbox for
-   matching replies (`In-Response-To` headers referencing your outbound messages)
-5. Classify each inbox message:
+Phase 0 is the SCAN + TRIAGE from the polling loop. Every iteration:
+
+1. Read CONTENTS of every file in team inbox root (not `inbox/completed/`)
+2. Read CONTENTS of every file in `issues/queue/` and `issues/active/`
+3. Check active issues for `## Awaiting Response` entries
+4. Output a triage table (message count, action items, routing)
+5. Classify each actionable message:
 
 | Message Type | Action |
 |-------------|--------|
@@ -36,10 +39,14 @@ INNER LOOP: Implement → Verify → Document → QA Handoff → Iterate
 | QA finding / rejection | → Match to active issue, prioritize re-fix |
 | Bug report from other team | → Phase 0b (assess, create issue) |
 | Reply to our outbound request | → Match to original thread, unblock or create issue |
+| Question from other team | → Respond directly |
 | Status update | → Acknowledge, no action unless blocking |
 
 6. Match findings and cross-team requests to active issues
 7. Unblock issues where dependencies are resolved
+
+**Do NOT dismiss issues without reading them.** "Assigned To: QA" does not mean
+"skip" — read the issue and determine if your role has action items in it.
 
 ---
 
@@ -140,6 +147,27 @@ All checks must pass before handoff. Fix and re-run on failure.
 - Issue stays in `active/` with Status: ACTIVE
 - Do NOT move to `completed/` or set Status: COMPLETE — QA owns that
 - Dev does NOT run QA gate checks
+
+---
+
+## Phase 5b: Inbox Cleanup
+
+After processing work, move handled inbox messages to `inbox/completed/`:
+
+```
+mv {team_inbox}/{message} {team_inbox}/completed/{message}
+```
+
+| Message type | Move when... |
+|---|---|
+| Question | Response sent |
+| Contract request | Contract confirmed or issue created |
+| QA finding | Fix implemented and re-handoff sent |
+| Status update | Read and acknowledged |
+| Bug report | Issue created |
+
+The inbox root should only contain unprocessed messages. This keeps every
+future scan fast and focused on new work.
 
 ---
 

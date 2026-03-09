@@ -51,17 +51,40 @@ qa_state:
 phase_0_comms:
   name: Poll comms and triage
   trigger: start_of_iteration
+  blocking: true
+  procedure_ref: procedures/polling-workflow.md (Steps 1-2)
   steps:
-    - Read {team}/inbox/ for new messages
-    - Read {team}/issues/active/ for issues with dev resolution notes
+    # ---------------------------------------------------------------
+    # SCAN — read CONTENTS, not filenames
+    # ---------------------------------------------------------------
+    - List and READ CONTENTS of every file in {team}/inbox/ (not completed/)
+    - List and READ CONTENTS of every file in {team}/issues/active/
     - Parse issue QA field and include QA=PENDING and QA=PENDING_MANUAL_REVIEW items in candidate set
     - Check for stale blocks (QA=BLOCKED with last verification >12h ago) — auto-include for recheck
     - Check for stale manual reviews (QA=PENDING_MANUAL_REVIEW >12h ago) — auto-include for manual review
+    - Do NOT dismiss issues based on metadata — read and assess each one
+
+    # ---------------------------------------------------------------
+    # TRIAGE — classify and output proof
+    # ---------------------------------------------------------------
     - Classify each inbox message (qa_review_request, dev_refix, cross_team_response, status_update)
     - Match dev resolution notes and re-fix messages to active issues
     - Pick next issue (re-checks first, then new handoffs by ID order)
+
+    # ---------------------------------------------------------------
+    # VERIFICATION — required before proceeding
+    # ---------------------------------------------------------------
+    - Output triage summary with counts and action items
+  verification:
+    criteria: All inbox messages read and classified before any Phase 1+ work begins
+    required_output: |
+      ## Poll Iteration [N]
+      Inbox: [X] messages read, [Y] actionable
+      Active: [X] issues ([Y] QA-ready)
+      New work found: YES/NO
+    on_failure: Do NOT proceed to verification — finish the scan first
   sources:
-    - dev_communication/{team}/inbox
+    - dev_communication/{team}/inbox (exclude completed/ subdirectory)
     - dev_communication/{team}/issues/active
   qa_ready_markers:
     - Development Complete
