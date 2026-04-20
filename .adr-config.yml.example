@@ -1,0 +1,12 @@
+# Project-local configuration for the /adr skill.
+#
+# Copy this file to the root of a consuming project as `.adr-config.yml`
+# to override where ADRs and related architecture files are stored.
+#
+# The `adr_root` path is interpreted relative to the project root
+# (the directory Claude Code or Codex is invoked from).
+#
+# If this file is absent, the /adr skill defaults to:
+#   dev_communication/shared/architecture
+
+adr_root: dev_communication/shared/architecture
