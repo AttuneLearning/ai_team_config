@@ -99,10 +99,12 @@ Both platforms also consume shared team definitions from `team-configs/`:
 |-------|-----------|-----------|
 | `/comms` | `dev_communication/{team}/` | `dev_communication/` (messages, issues) |
 | `/memory` | `./memory/` | `./memory/` |
-| `/adr` | `dev_communication/shared/architecture/` | `dev_communication/shared/architecture/` |
+| `/adr` | `{adr_root}/` (default `dev_communication/shared/architecture/`) | `{adr_root}/` |
 | `/context` | `./memory/` + `dev_communication/shared/` | — (read-only) |
 | `/reflect` | `./memory/` + git diff | `./memory/`, `dev_communication/shared/architecture/suggestions/` |
 | `/refine` | `./memory/patterns/` | `./memory/`, `dev_communication/shared/architecture/decisions/` |
+
+**ADR path configuration.** The `/adr` skill resolves its root from an optional `.adr-config.yml` at the project root; if absent, it defaults to `dev_communication/shared/architecture/`. See `skills/adr/SKILL.md` and `.adr-config.yml.example`. `/reflect` and `/refine` still hardcode the default path — aligning them with `.adr-config.yml` is tracked as follow-up work.
 
 ## Roles
 
