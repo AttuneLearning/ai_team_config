@@ -179,7 +179,9 @@ count_work_files() {
 list_work_files() {
   local dir="$1"
   [[ -d "$dir" ]] || return 0
-  find "$dir" -maxdepth 1 -type f ! -name '.gitkeep' ! -name '.*' -printf '- %f\n' 2>/dev/null | sort
+  # Two-space leading indent so the file list renders as a nested bullet
+  # under its parent "Inbox:" / "Queue:" bullet in the status markdown.
+  find "$dir" -maxdepth 1 -type f ! -name '.gitkeep' ! -name '.*' -printf '  - %f\n' 2>/dev/null | sort
 }
 
 INBOX_COUNT="$(count_work_files "$INBOX_DIR")"
