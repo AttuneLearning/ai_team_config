@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# team-keepalive.sh — autonomous keepalive nudge for a team's Claude workflow
+# team-keepalive.sh — autonomous keepalive nudge for a team's dev + QA loop
 # =============================================================================
 #
 # Cron-driven, non-interactive. Each run:
@@ -14,10 +14,16 @@
 #        - dev_communication/<team>/issues/queue/    (issues waiting to start)
 #   5. Writes a timestamped status file at dev_communication/<team>/status/
 #      with the scan results.
-#   6. If pending work exists, invokes `claude --print --continue` with a
-#      prompt asking the next Claude to process the work and append
-#      findings to the status file. Otherwise marks the status "no action"
-#      and exits without burning tokens.
+#   6. If pending work exists, invokes `claude --print --continue` as the
+#      team's dev sub-role. The prompt asks Claude to process the work,
+#      commit + push, and append findings to the status file.
+#   7. If --run-qa-after-dev is set AND Claude's dev run succeeded, invokes
+#      the Codex CLI as the team's QA sub-role. The Codex prompt is the
+#      <team>-qa-autonomous-sweep.md from the submodule, with a
+#      non-interactive directive appended so Codex exits cleanly.
+#      If Claude didn't run (no pending work, throttled, paused, or failed),
+#      QA is skipped.
+#   8. Records the outcome of both runs in the status file.
 #
 # Recommended cron cadence: every 15 minutes. The script self-throttles to
 # the --interval-hours value, so frequent cron fires are cheap.
@@ -28,14 +34,21 @@
 #   team-keepalive.sh <project_root> <team_id> [options]
 #
 # Options:
-#   --interval-hours N      Minimum hours between Claude invocations (default: 3)
+#   --interval-hours N      Minimum hours between dev invocations (default: 3)
 #   --pause-file PATH       Skip run if this file exists (default: ~/.claude/pause-keepalive-<team_id>)
 #   --retention-days N      Delete status files older than this (default: 7)
-#   --dry-run               Print what would happen; do not invoke Claude
+#   --run-qa-after-dev      Invoke Codex as <team>-qa after a successful
+#                           Claude dev run. Skipped if Claude didn't run.
+#                           Default: disabled (opt-in).
+#   --no-qa-after-dev       Explicit override when the default changes.
+#   --claude-cmd "cmd"      Dev CLI invocation (default: `claude --print --continue`).
+#   --codex-cmd "cmd"       QA CLI invocation (default: `codex exec`).
+#                           Adjust if your Codex CLI takes different flags.
+#   --dry-run               Print what would happen; do not invoke any CLI.
 #   -h | --help             Show this help
 #
 # Example cron entry:
-#   */15 * * * * /home/adam/github/soundsafe/ai_team_config/scripts/team-keepalive.sh /home/adam/github/soundsafe fullstack >> /home/adam/.claude/keepalive-fullstack.log 2>&1
+#   */15 * * * * /home/adam/github/soundsafe/ai_team_config/scripts/team-keepalive.sh /home/adam/github/soundsafe fullstack --run-qa-after-dev >> /home/adam/.claude/keepalive-fullstack.log 2>&1
 #
 # Pause the loop without editing cron:
 #   touch ~/.claude/pause-keepalive-fullstack
@@ -52,19 +65,26 @@ INTERVAL_HOURS=3
 PAUSE_FILE=""
 RETENTION_DAYS=7
 DRY_RUN=0
+RUN_QA_AFTER_DEV=0
+CLAUDE_CMD="claude --print --continue"
+CODEX_CMD="codex exec"
 
 usage() {
-  sed -n '2,50p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,60p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --interval-hours) INTERVAL_HOURS="$2"; shift 2 ;;
-    --pause-file)     PAUSE_FILE="$2"; shift 2 ;;
-    --retention-days) RETENTION_DAYS="$2"; shift 2 ;;
-    --dry-run)        DRY_RUN=1; shift ;;
-    -h|--help)        usage 0 ;;
+    --interval-hours)   INTERVAL_HOURS="$2"; shift 2 ;;
+    --pause-file)       PAUSE_FILE="$2"; shift 2 ;;
+    --retention-days)   RETENTION_DAYS="$2"; shift 2 ;;
+    --run-qa-after-dev) RUN_QA_AFTER_DEV=1; shift ;;
+    --no-qa-after-dev)  RUN_QA_AFTER_DEV=0; shift ;;
+    --claude-cmd)       CLAUDE_CMD="$2"; shift 2 ;;
+    --codex-cmd)        CODEX_CMD="$2"; shift 2 ;;
+    --dry-run)          DRY_RUN=1; shift ;;
+    -h|--help)          usage 0 ;;
     --*)
       echo "Error: unknown option: $1" >&2
       usage 2
@@ -215,7 +235,11 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "## Action"
     echo
     echo "- Claude invoked: **no** (dry run)"
-    echo "- Would have invoked \`claude --print --continue\` at $RUN_ISO"
+    echo "- Would have invoked \`$CLAUDE_CMD\` at $RUN_ISO"
+    if [[ "$RUN_QA_AFTER_DEV" -eq 1 ]]; then
+      echo "- Codex QA invoked: **no** (dry run)"
+      echo "- Would have invoked \`$CODEX_CMD\` after a successful Claude run"
+    fi
   } >> "$STATUS_FILE"
   log "DRY-RUN: would invoke Claude for $TOTAL pending item(s); status $STATUS_FILE"
   exit 0
@@ -276,26 +300,119 @@ cd "$PROJECT_ROOT"
 
 # Use printf to stream the prompt to claude's stdin; --print makes it
 # non-interactive, --continue resumes the most recent conversation in cwd.
-if printf '%s\n' "$CLAUDE_PROMPT" | claude --print --continue 2>&1 | tee -a "$HOME/.claude/keepalive-$TEAM_ID.log"; then
+# shellcheck disable=SC2086  # CLAUDE_CMD intentionally word-splits
+if printf '%s\n' "$CLAUDE_PROMPT" | $CLAUDE_CMD 2>&1 | tee -a "$HOME/.claude/keepalive-$TEAM_ID.log"; then
   CLAUDE_EXIT=0
 else
   CLAUDE_EXIT="${PIPESTATUS[1]:-$?}"
 fi
 
 if [[ "$CLAUDE_EXIT" -eq 0 ]]; then
-  log "SUCCESS: Claude run completed"
+  log "SUCCESS: Claude dev run completed"
   echo "$NOW" > "$LAST_RUN_FILE"
 else
-  log "ERROR: Claude run exited $CLAUDE_EXIT"
+  log "ERROR: Claude dev run exited $CLAUDE_EXIT"
   {
     echo
     echo "### Keepalive error"
     echo
     echo "Claude CLI exited with code \`$CLAUDE_EXIT\`. See \`$HOME/.claude/keepalive-$TEAM_ID.log\` for stdout/stderr."
+    echo
+    echo "_(Codex QA run skipped — dev side failed.)_"
   } >> "$STATUS_FILE"
   # Do NOT update last-run on failure — let the next cron tick retry
   # immediately instead of waiting the full interval.
   exit "$CLAUDE_EXIT"
+fi
+
+# ---------------------------------------------------------------------------
+# 9. Optional: invoke Codex QA after successful Claude dev run
+# ---------------------------------------------------------------------------
+if [[ "$RUN_QA_AFTER_DEV" -ne 1 ]]; then
+  log "DONE (dev only; QA skipped per config)"
+  exit 0
+fi
+
+CODEX_PROMPT_FILE="$PROJECT_ROOT/ai_team_config/prompts/codex/${TEAM_ID}-qa-autonomous-sweep.md"
+if [[ ! -f "$CODEX_PROMPT_FILE" ]]; then
+  log "WARN: Codex QA prompt not found at $CODEX_PROMPT_FILE — skipping QA run"
+  {
+    echo
+    echo "## Codex QA run"
+    echo
+    echo "- Invoked: **no** (QA autonomous-sweep prompt not found at \`$CODEX_PROMPT_FILE\`)"
+    echo "- Skipped; dev run already succeeded"
+  } >> "$STATUS_FILE"
+  exit 0
+fi
+
+QA_RUN_ISO="$(date -u +%FT%TZ)"
+log "INVOKE: Codex QA after successful dev run; prompt $CODEX_PROMPT_FILE"
+
+{
+  echo
+  echo "## Codex QA run"
+  echo
+  echo "- Invoked: **yes** at $QA_RUN_ISO"
+  echo "- Prompt source: \`$CODEX_PROMPT_FILE\` + non-interactive directive"
+  echo "- CLI: \`$CODEX_CMD\`"
+  echo
+  echo "### Codex's findings"
+  echo
+  echo "_(Populated by Codex during this run. If this section stays empty, the Codex run failed; see \`$HOME/.claude/keepalive-$TEAM_ID.log\`.)_"
+  echo
+} >> "$STATUS_FILE"
+
+# Build the QA prompt: the autonomous-sweep prompt + keepalive directive
+# pointing at this status file. The Codex agent reads its own prompt and
+# then knows to append findings here.
+CODEX_PROMPT=$(cat <<PROMPT_EOF
+$(cat "$CODEX_PROMPT_FILE")
+
+---
+
+## Additional directive (from team-keepalive.sh)
+
+This is a non-interactive keepalive run. A successful dev-side Claude run just
+completed at $RUN_ISO. Your job now: process any fresh dev handoffs in
+\`$TEAM_DIR/inbox\` per the sweep above, render verdicts, and exit cleanly.
+
+When you finish, append your findings to the status file at:
+
+    $STATUS_FILE
+
+Under the \`### Codex's findings\` heading, record:
+
+- **Issues processed:** one bullet per issue with verdict (PASS / PASS WITH CONDITIONS / BLOCKED / NEED MORE INFO) and the FS-ISS id.
+- **Commits:** any new commits made by QA (e.g., moving issues to completed/, writing QA verification sections).
+- **Blockers surfaced:** anything that needs Dev attention on the next tick.
+- **Next actions:** what the next keepalive tick should expect.
+
+Commit the status-file update. Do NOT loop forever; this is a single-run sweep.
+PROMPT_EOF
+)
+
+# shellcheck disable=SC2086  # CODEX_CMD intentionally word-splits
+if printf '%s\n' "$CODEX_PROMPT" | $CODEX_CMD 2>&1 | tee -a "$HOME/.claude/keepalive-$TEAM_ID.log"; then
+  CODEX_EXIT=0
+else
+  CODEX_EXIT="${PIPESTATUS[1]:-$?}"
+fi
+
+if [[ "$CODEX_EXIT" -eq 0 ]]; then
+  log "SUCCESS: Codex QA run completed"
+else
+  log "ERROR: Codex QA run exited $CODEX_EXIT"
+  {
+    echo
+    echo "### Codex QA error"
+    echo
+    echo "Codex CLI exited with code \`$CODEX_EXIT\`. See \`$HOME/.claude/keepalive-$TEAM_ID.log\` for stdout/stderr."
+    echo
+    echo "_(Dev run succeeded; only QA failed. Next keepalive tick will retry QA.)_"
+  } >> "$STATUS_FILE"
+  # Don't fail the whole script — dev work succeeded and is pushed. Just
+  # record the QA failure for the next tick to retry.
 fi
 
 log "DONE"
