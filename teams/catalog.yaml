@@ -119,3 +119,23 @@ roles:
         id: platform-qa
         name: Platform-QA
         issue_prefix: PLAT-QA
+
+  fullstack:
+    name: Fullstack
+    description: >
+      End-to-end ownership of frontend + backend (+ cloud) by a single
+      contributor or small team. Use when there are no separate frontend
+      and backend teams to coordinate with. In multi-team projects, prefer
+      the specialized frontend / backend / cloud roles instead so cross-team
+      comms have a clear protocol.
+    sub_teams:
+      dev:
+        id: fullstack-dev
+        name: Fullstack-Dev
+        issue_prefix: FS-ISS
+        role_guidance: dev_communication/shared/guidance/FULLSTACK_DEV_ROLE_GUIDANCE.md
+      qa:
+        id: fullstack-qa
+        name: Fullstack-QA
+        issue_prefix: FS-QA
+        role_guidance: dev_communication/shared/guidance/FULLSTACK_QA_ROLE_GUIDANCE.md

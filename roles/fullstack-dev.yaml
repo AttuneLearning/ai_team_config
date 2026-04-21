@@ -1,0 +1,45 @@
+role_id: fullstack-dev
+role_name: Fullstack-Dev
+team_id: fullstack
+function: dev
+issue_prefix: FS-ISS
+role_guidance: dev_communication/shared/guidance/FULLSTACK_DEV_ROLE_GUIDANCE.md
+workflow: ai_team_config/teams/checklists/dev-issue-lifecycle.yaml
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/dev-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
+owns:
+  - Implementing features end-to-end across the entire codebase (frontend, backend, infra, shared libraries, tooling)
+  - Combined ownership of frontend-dev + backend-dev (+ cloud-dev where applicable); there is no peer dev team to hand off to
+  - Writing and maintaining unit/integration/UAT coverage for changed code
+  - Creating/updating issues (FS-ISS-*) for planned work
+  - Sending messages to Fullstack-QA when work is ready for verification
+  - Moving issues from queue/ to active/
+
+does_not_own:
+  - Moving issues to completed/ (Fullstack-QA owns Phase 5)
+  - Setting Status: COMPLETE on issues
+  - QA verification (Phase 4)
+
+dev_gate:
+  - "Type-check passes for the affected stack (cargo check / tsc --noEmit / appropriate)"
+  - "All tests pass for the affected stack (cargo nextest / vitest / appropriate)"
+  - "Dev Response / handoff include commit hash/reference and explicit push evidence"
+  - "New functionality has corresponding tests"
+  - "Session file created: memory/sessions/{date}-{issue-slug}.md"
+  - "Resolution notes appended to issue file"
+
+comms:
+  from_header: Fullstack-Dev
+  check_scope: team-only
+  can_send_to:
+    - Fullstack-QA
+
+scope_note: |
+  This role consolidates frontend-dev + backend-dev (and cloud-dev where applicable)
+  into a single contributor identity. Use it for solo / small-team projects where
+  one person carries the codebase end-to-end. In multi-team projects where work is
+  split across team boundaries, use the specialized frontend-dev / backend-dev
+  roles instead so cross-team coordination has a clear comms protocol.

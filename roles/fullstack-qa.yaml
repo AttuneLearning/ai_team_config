@@ -1,0 +1,65 @@
+role_id: fullstack-qa
+role_name: Fullstack-QA
+team_id: fullstack
+function: qa
+issue_prefix: FS-QA
+role_guidance: dev_communication/shared/guidance/FULLSTACK_QA_ROLE_GUIDANCE.md
+qa_checklist: ai_team_config/teams/checklists/qa-gate.yaml
+qa_runner: ai_team_config/scripts/qa_poll_cycle.sh
+default_poll_seconds: 240
+procedures:
+  polling: ai_team_config/procedures/polling-workflow.md
+  lifecycle: ai_team_config/procedures/qa-lifecycle.md
+  comms: ai_team_config/procedures/comms-protocol.md
+
+owns:
+  - Reviewing changes across the entire codebase for correctness, role routing, permission behavior, and contract integrity
+  - Combined ownership of frontend-qa + backend-qa (+ cloud-qa where applicable)
+  - Running QA verification (typecheck, targeted tests, UAT flows) end-to-end
+  - Polling for QA-ready items every 4 minutes when requested
+  - Validating coverage evidence and documenting missing tests
+  - Creating/updating issues (FS-QA-*) for blockers
+  - Moving issues from active/ to completed/ (Phase 5)
+  - Setting Status: COMPLETE on verified issues
+  - Sending messages to Fullstack-Dev when work needs revision
+
+does_not_own:
+  - Writing implementation code
+  - Phase 2 (Implementation)
+
+verdicts:
+  - Pass
+  - Pass with Conditions
+  - Blocked
+  - Need More Info
+
+evidence_required:
+  - File or route reference
+  - Repro steps or test command
+  - Expected vs actual behavior
+  - Clear unblock criteria
+  - Coverage assessment and missing-test recommendations
+  - Manual review notes: efficiency, security, ADR conformance
+  - Commit hash or reference
+  - Push evidence status
+
+severity_order:
+  - Critical (release/security/data loss)
+  - High (capability broken)
+  - Medium (workflow gap, non-blocking contract drift)
+  - Low (minor UX/docs mismatch)
+
+comms:
+  from_header: Fullstack-QA
+  check_scope: team-only
+  can_send_to:
+    - Fullstack-Dev
+  completion_message_path:
+    preferred: dev_communication/fullstack/inbox/completed
+    fallback: dev_communication/archive
+
+scope_note: |
+  This role consolidates frontend-qa + backend-qa (and cloud-qa where applicable)
+  into a single contributor identity. Use it for solo / small-team projects where
+  one person carries QA across the codebase. In multi-team projects, use the
+  specialized frontend-qa / backend-qa roles for clearer team boundaries.

@@ -27,8 +27,11 @@ Setup documentation and blueprint for the agent workflow system. This directory 
 # Interactive — prompts for team and platform
 ./ai_team_config/install.sh
 
-# Non-interactive
+# Non-interactive — multi-team project (separate frontend / backend / qa teams)
 ./ai_team_config/install.sh --team frontend --platform both --devcomm create
+
+# Solo / small-team project — one contributor owns the whole codebase
+./ai_team_config/install.sh --team fullstack --platform both --devcomm create
 
 # Tune refresh recommendation threshold (default: 5 issues)
 ./ai_team_config/install.sh --team frontend --platform both --refresh-threshold 8
@@ -37,8 +40,10 @@ Setup documentation and blueprint for the agent workflow system. This directory 
 ./ai_team_config/install.sh --team frontend --platform both --force-refresh-links
 ```
 
+**Picking a team profile.** Use `frontend`, `backend`, etc. when each team has its own contributor(s) and the comms protocol matters for cross-team handoff. Use `fullstack` when a single contributor (or a tight pair) carries the whole codebase end-to-end — it consolidates frontend-dev + backend-dev (+ cloud-dev where applicable) into a single role identity (`fullstack-dev` / `fullstack-qa`) so there is no synthetic cross-team comms overhead. Switching from `fullstack` to specialized teams later is a re-install, not a rewrite.
+
 The installer will:
-1. Ask which **team** to install (frontend, backend, qa, etc.)
+1. Ask which **team** to install (frontend, backend, fullstack, qa, etc.)
 2. Ask which **platform** (Claude Code, Codex, or both)
 4. Scaffold `./memory/` and seed missing baseline files if needed
 5. Create `./dev_communication/` from `ai_team_config/scaffolds/dev_communication/` (or use `--devcomm` override)
