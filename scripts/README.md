@@ -6,6 +6,10 @@ Scripts that projects wire into their own workflow (cron, systemd, or one-shot t
 
 Per-issue QA polling loop. See the script head for arguments. Typically used during an active QA push.
 
+## `fullstack_qa_poll_cycle.sh`
+
+Fullstack-QA polling loop for the consolidated `fullstack` team profile. It scans `dev_communication/fullstack/`, matches canonical `FS-ISS-*` handoffs, runs the fullstack automated gate sweep, writes QA blocked responses back to the shared inbox, and archives only the inbound dev handoff messages it consumed.
+
 ## `team-keepalive.sh`
 
 Autonomous hourly-ish keepalive nudge. Checks a team's `inbox/` and `issues/queue/` for pending work; if there's anything to do, resumes the most recent Claude conversation as the team's **dev** sub-role via `claude --print --continue`. Optionally (`--run-qa-after-dev`) invokes **Codex** as the team's **QA** sub-role after a successful dev run, to process dev handoffs, render verdicts, and close passing issues. Writes a timestamped status file to `dev_communication/<team>/status/` each run and garbage-collects status files older than 7 days (tunable).

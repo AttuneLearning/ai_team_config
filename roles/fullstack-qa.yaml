@@ -5,7 +5,7 @@ function: qa
 issue_prefix: FS-QA
 role_guidance: dev_communication/shared/guidance/FULLSTACK_QA_ROLE_GUIDANCE.md
 qa_checklist: ai_team_config/teams/checklists/qa-gate.yaml
-qa_runner: ai_team_config/scripts/qa_poll_cycle.sh
+qa_runner: ai_team_config/scripts/fullstack_qa_poll_cycle.sh
 default_poll_seconds: 240
 procedures:
   polling: ai_team_config/procedures/polling-workflow.md
