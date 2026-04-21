@@ -6,14 +6,20 @@ Complete guide to setting up the Claude Code development workflow in a new proje
 
 ```bash
 # 1. Add submodule to your project
-git submodule add https://github.com/yourusername/claude-dev-workflow.git .claude-workflow
+git submodule add git@github.com:AttuneLearning/ai_team_config.git ai_team_config
 
-# 2. Run unified agent coordination setup (Claude + Codex)
-./agent-coord-setup.sh --team backend
+# 2. Run the unified installer (Claude + Codex)
+./ai_team_config/install.sh --team backend --platform both
 
 # Claude-only setup (if needed)
-./agent-coord-setup.sh --claude-only
+./ai_team_config/install.sh --team backend --platform claude
+
+# Solo / small-team projects: use the fullstack profile
+./ai_team_config/install.sh --team fullstack --platform both
 ```
+
+> The older `agent-coord-setup.sh` orchestrator is deprecated; it now
+> exits with a redirect message pointing at `install.sh`.
 
 ## Manual Setup
 
