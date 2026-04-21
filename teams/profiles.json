@@ -29,7 +29,8 @@
         "other_team_inbox": "dev_communication/backend/inbox",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/frontend/status.md"
+        "status": "dev_communication/frontend/status.md",
+        "status_dir": "dev_communication/frontend/status"
       }
     },
     "backend": {
@@ -59,7 +60,8 @@
         "other_team_inbox": "dev_communication/frontend/inbox",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/backend/status.md"
+        "status": "dev_communication/backend/status.md",
+        "status_dir": "dev_communication/backend/status"
       }
     },
     "mobile": {
@@ -86,7 +88,8 @@
         "issues_completed": "dev_communication/mobile/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/mobile/status.md"
+        "status": "dev_communication/mobile/status.md",
+        "status_dir": "dev_communication/mobile/status"
       }
     },
     "cloud": {
@@ -113,7 +116,8 @@
         "issues_completed": "dev_communication/cloud/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/cloud/status.md"
+        "status": "dev_communication/cloud/status.md",
+        "status_dir": "dev_communication/cloud/status"
       }
     },
     "data-warehousing": {
@@ -140,7 +144,8 @@
         "issues_completed": "dev_communication/data-warehousing/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/data-warehousing/status.md"
+        "status": "dev_communication/data-warehousing/status.md",
+        "status_dir": "dev_communication/data-warehousing/status"
       }
     },
     "qa": {
@@ -167,7 +172,8 @@
         "issues_completed": "dev_communication/qa/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/qa/status.md"
+        "status": "dev_communication/qa/status.md",
+        "status_dir": "dev_communication/qa/status"
       }
     },
     "platform": {
@@ -194,7 +200,8 @@
         "issues_completed": "dev_communication/platform/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/platform/status.md"
+        "status": "dev_communication/platform/status.md",
+        "status_dir": "dev_communication/platform/status"
       }
     },
     "fullstack": {
@@ -224,7 +231,8 @@
         "issues_completed": "dev_communication/fullstack/issues/completed",
         "architecture_root": "dev_communication/shared/architecture",
         "memory_root": "./memory",
-        "status": "dev_communication/fullstack/status.md"
+        "status": "dev_communication/fullstack/status.md",
+        "status_dir": "dev_communication/fullstack/status"
       }
     }
   }

@@ -943,7 +943,8 @@ else
     "${TEAM_ID}/inbox" \
     "${TEAM_ID}/issues/queue" \
     "${TEAM_ID}/issues/active" \
-    "${TEAM_ID}/issues/completed"
+    "${TEAM_ID}/issues/completed" \
+    "${TEAM_ID}/status"
   do
     if [ ! -d "${DEVCOMM_DIR}/${required_dir}" ]; then
       report_issue "Missing dev_communication/${required_dir}"
