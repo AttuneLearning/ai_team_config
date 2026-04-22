@@ -49,16 +49,19 @@ phase_4_verify:
 
 phase_5_document:
   name: Document & handoff
+  blocking: true
   steps:
     - Create session file memory/sessions/{date}-{issue-slug}.md
     - Append resolution notes to issue file
     - If cross-team impact, send message to backend/inbox/
     - Commit and push
-    - "Step A: Append '## Dev Response ({ISO timestamp})' to issue file with status, file refs, gate results"
-    - "Step B: Create handoff message in team inbox ({date}_qa-handoff-{prefix}-{NNN}.md or {date}_dev-rehandoff-{prefix}-{NNN}.md)"
-  handoff_rule: >
-    BOTH Step A and Step B required. Omitting either → QA skips the issue.
-    Issue stays in active/. Do NOT move to completed/.
+  handoff:
+    rule: BOTH artifacts required. Commit+push is NOT a handoff. Omitting either → QA skips.
+    a_issue_file: "Append `## Dev Response ({ISO ts})` to issues/active/{file}.md. On re-handoff, ts MUST be newer than latest `## QA Verification`."
+    b_inbox: "Write {date}_{qa-handoff|dev-rehandoff}-{prefix}-{NNN}.md to frontend/inbox/."
+    verify: "`tail -20 issues/active/{file}.md` AND `ls frontend/inbox/` — both must show fresh artifacts before declaring handoff done."
+    freshness: Re-handoff Dev Response timestamp > latest QA Verification timestamp, or QA's poll cycle skips the issue.
+    note: Issue stays in active/. Do NOT move to completed/.
 
 phase_5b_cleanup:
   name: Inbox cleanup

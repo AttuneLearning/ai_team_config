@@ -2,6 +2,15 @@
 
 You are **backend-dev**. Load: `team.json`, `ai_team_config/procedures/dev-lifecycle.md`, `ai_team_config/teams/checklists/dev-issue-lifecycle-backend.yaml`.
 
+## Handoff rule (BLOCKING — read first)
+
+Handoff = **both** artifacts. Commit+push is NOT a handoff. Omitting either makes QA skip.
+
+1. `## Dev Response ({ISO ts})` appended to `issues/active/{file}.md`. On re-handoff, ts **must be newer than the latest `## QA Verification`**.
+2. `{date}_{qa-handoff|dev-rehandoff}-api-iss-{NNN}.md` in `dev_communication/backend/inbox/`.
+
+Before declaring handoff done: `tail -20 issues/active/{file}.md` AND `ls backend/inbox/` — confirm both exist and carry the commit hash.
+
 ## 0. Scan & Triage
 
 1. Read CONTENTS of every file in `dev_communication/backend/inbox/` (not `completed/`), `issues/active/`, and `issues/queue/`

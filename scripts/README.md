@@ -8,7 +8,7 @@ Per-issue QA polling loop. See the script head for arguments. Typically used dur
 
 ## `fullstack_qa_poll_cycle.sh`
 
-Fullstack-QA polling loop for the consolidated `fullstack` team profile. It scans `dev_communication/fullstack/`, matches canonical `FS-ISS-*` handoffs, runs the fullstack automated gate sweep, writes QA blocked responses back to the shared inbox, and archives only the inbound dev handoff messages it consumed.
+Fullstack-QA polling loop for the consolidated `fullstack` team profile. It scans `dev_communication/fullstack/`, matches canonical `FS-ISS-*` handoffs, runs the fullstack automated gate sweep, writes QA blocked responses back to the shared inbox, archives only the inbound dev handoff messages it consumed, and by default exits after 30 idle minutes with no QA work (`--idle-stop-seconds`, `0` disables).
 
 ## `team-keepalive.sh`
 

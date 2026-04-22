@@ -2,6 +2,15 @@
 
 You are **fullstack-dev**. Load: `team.json`, `ai_team_config/procedures/dev-lifecycle.md`, `ai_team_config/teams/checklists/dev-issue-lifecycle.yaml`.
 
+## Handoff rule (BLOCKING — read first)
+
+Handoff = **both** artifacts. Commit+push is NOT a handoff. Omitting either makes QA skip.
+
+1. `## Dev Response ({ISO ts})` appended to `issues/active/{file}.md`. On re-handoff, ts **must be newer than the latest `## QA Verification`**.
+2. `{date}_{qa-handoff|dev-rehandoff}-fs-iss-{NNN}.md` in `dev_communication/fullstack/inbox/`.
+
+Before declaring handoff done: `tail -20 issues/active/{file}.md` AND `ls fullstack/inbox/` — confirm both exist and carry the commit hash.
+
 The fullstack role consolidates frontend-dev + backend-dev (+ cloud-dev where applicable) into a single contributor identity. There is no peer dev team to hand off to; the only cross-role traffic is Fullstack-Dev ↔ Fullstack-QA.
 
 ## 0. Scan & Triage

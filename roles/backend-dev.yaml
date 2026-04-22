@@ -30,6 +30,14 @@ dev_gate:
   - "Session file created: memory/sessions/{date}-{issue-slug}.md"
   - "Resolution notes appended to issue file"
 
+# QA handoff = BOTH artifacts. Commit+push alone is not a handoff.
+# Omitting either → QA skips (freshness check compares timestamps).
+handoff_required:
+  a_issue_file: "Append `## Dev Response ({ISO-8601 timestamp})` to issues/active/{file}.md. On re-handoff, timestamp MUST be newer than latest `## QA Verification`. Include: status, files, gates, commit, push."
+  b_inbox: "dev_communication/backend/inbox/{date}_{qa-handoff|dev-rehandoff}-api-iss-{NNN}.md with From/To, subject, action-required, commit+push."
+  verify_after: "`tail -20` issue file AND `ls backend/inbox/` — both must show the fresh artifacts before declaring handoff done."
+  archive: "Move prior QA BLOCKED/PASS messages to inbox/completed/ only AFTER the new pair is committed."
+
 comms:
   from_header: Backend-Dev
   check_scope: team-only
